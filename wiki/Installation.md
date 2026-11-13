@@ -43,11 +43,27 @@ GraalMC 是最容易被漏掉的一个。NekoJS 构建时**故意把 Graal 排�
 │   └── mmcr_nekojs-26.1.2-0.1.1.jar        ← 本附属
 └── nekojs/                                  ← 首次启动后自动生成
     ├── startup_scripts/
-    ├── server_scripts/
-    └── client_scripts/
+    │   ├── jsconfig.json
+    │   └── src/
+    │       └── main.js                      ← NekoJS 自带的 Hello World
+    ├── server_scripts/src/
+    └── client_scripts/src/
 ```
 
 `nekojs/` 目录由 NekoJS 在第一次启动时创建。**如果它没被创建，说明 NekoJS 本身没加载成功**，先解决那个再谈本附属。
+
+### 脚本放哪一层
+
+NekoJS 用 `Files.walk` **递归扫描**整个 `startup_scripts/` 目录（只排除 `node_modules`），所以这几种位置等价：
+
+```
+nekojs/startup_scripts/my_machine.js            ✅ 直接放根
+nekojs/startup_scripts/src/my_machine.js        ✅ 放默认的 src/
+nekojs/startup_scripts/machines/smelter.js      ✅ 自己建子目录
+nekojs/startup_scripts/node_modules/x.js        ❌ 被排除
+```
+
+`src/` 只是官方示例的组织方式，不是强制要求。用子目录分文件完全没问题，日志里的「发现了 N 个 STARTUP 脚本」会把它们都算上。
 
 ## 4. 确认装好了
 

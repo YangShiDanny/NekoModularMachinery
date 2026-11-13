@@ -1,6 +1,7 @@
 package cn.howxu.mmcr.nekojs;
 
 import cn.howxu.mmcr.nekojs.bridge.DeclarationStore;
+import cn.howxu.mmcr.nekojs.bridge.MMCRStartupReplay;
 import cn.howxu.mmcr.nekojs.recipe.MachineRecipeHandler;
 import cn.howxu.mmcr.nekojs.recipe.MachineRecipeSchema;
 import com.tkisor.nekojs.api.NekoJSPlugin;
@@ -69,6 +70,10 @@ public final class MMCRNekoJSPlugin implements NekoJSPlugin {
                         DeclarationStore.structures().size(),
                         DeclarationStore.levels().size(),
                         DeclarationStore.modifiers().size());
+                // MMCR's definition window already closed inside its own construct event, which
+                // NeoForge fires per mod right after that mod's constructor. Re-open it now that
+                // the scripts have actually declared something.
+                MMCRStartupReplay.replayIfNeeded();
             }
             case SERVER -> {
                 MMCRNekoEvents.postServer();

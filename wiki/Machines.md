@@ -170,7 +170,8 @@ event.createMachine('my_mod:smelter')
 调用后：
 
 - 机器进入 `DeclarationStore`
-- MMCR 在 `FMLConstructModEvent` 时通过 ServiceLoader 取走
+- `STARTUP` 脚本跑完后，bridge 重开 MMCR 的定义窗口，通过 ServiceLoader 把整批声明交给 MMCR
+  （见 [生命周期与时机](Getting-Started)）
 - 控制器方块在注册阶段生成，ID 固定为 `mmcr:<机器名>_controller`
 
 **不要**重复注册同一个 ID，MMCR 会报重复。

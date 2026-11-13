@@ -18,21 +18,39 @@ MMCR 不是「随时可以注册」的 API。它在启动流程里只开三个�
 
 ## 2. NekoJS 站在哪一格
 
-关键事实：**NekoJS 在自己的 mod 构造器里就同步跑完了所有 `STARTUP` 脚本**。
+关键事实一：**NekoJS 在自己的 mod 构造器里就同步跑完了所有 `STARTUP` 脚本**。
+
+关键事实二（容易搞反）：**`FMLConstructModEvent` 不是"所有 mod 都构造完之后统一发一次"**。NeoForge 的 `ModLoader.lambda$constructMods$0` 对每个 mod 做的是：
+
+```java
+container.constructMod();                              // 这个 mod 的构造器
+container.acceptEvent(new FMLConstructModEvent(...));   // 紧接着就给它发事件
+```
+
+也就是说，每个 mod 的 `FMLConstructModEvent` 在**它自己构造完的那一瞬间**就发了，跑在构造它的同一个并行 worker 里。而 mod 构造顺序按加载顺序，`mmcr` 排在 `nekojs` 前面：
 
 ```
-NeoForge 构造 mod          ← NekoJSMod 构造器在这里 → STARTUP 脚本全部执行完毕
-  ↓
-FMLConstructModEvent       ← 窗口 1：MMCR 收机器定义（读 ServiceLoader）
-  ↓
-FMLCommonSetupEvent        ← 窗口 2：结构/等级/修饰符，收完冻结
-  ↓
-ModifyDefaultComponentsEvent ← 窗口 3：静态配方
-  ↓
+modloading-worker-0:  mmcr.构造器 → mmcr 的 FMLConstructModEvent   ← 窗口 1 在这里关闭（此时还没机器）
+                      mmcr_nekojs.构造器
+                      nekojs.构造器 → STARTUP 脚本执行完毕          ← 声明此时才出现在 bridge 里
+FMLCommonSetupEvent                                                 ← 窗口 2：结构/等级/修饰符
+ModifyDefaultComponentsEvent                                        ← 窗口 3：静态配方
 服务器启动 → SERVER 脚本加载 → 世界可进
 ```
 
-所以 `MMCREvents.startup` 里的声明，**一定**早于三个窗口——三个都能用。
+按老假设（"事件在全部构造完之后发"）写出来的桥接，窗口 1 永远收不到声明，然后窗口 2 会拿着一个不存在的机器去注册结构，MMCR 直接抛 `Unknown machine definition` 把游戏打崩。
+
+**本附属怎么处理**：`STARTUP` 脚本一跑完（NekoJS 的 `afterScriptsLoaded`），bridge 立刻调
+`StartupContentRegistration.resetForTesting()` 把 MMCR 的启动阶段退回 `NOT_STARTED`，再跑一次
+`registerProductionForModStartup(mmcr 的 mod 总线)`。这时离窗口 2 还早、什么都没 commit，所以这次重放就是真正生效的那一次收集，`ServiceLoader` 拿到的正是填满的声明。日志里能看到：
+
+```
+MMCR/NekoJS submitted N machine definition(s) through a reopened window: [...]
+```
+
+想关掉这层兼容：JVM 参数 `-Dmmcrnekojs.disableStartupReplay=true`（关掉后脚本机器不会存在，只会在窗口 2 里被跳过并报错）。
+
+所以 `MMCREvents.startup` 里的声明，**三个窗口都能用**。
 
 而 `SERVER` 脚本加载在最后，**三个窗口全都关完了**。这就是本附属和 KubeJS 版最大的分歧点：
 

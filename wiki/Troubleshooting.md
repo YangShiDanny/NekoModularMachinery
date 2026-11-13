@@ -4,6 +4,12 @@
 
 ## 游戏起不来
 
+### `The following mods have version differences that were not resolved: mmcr_nekojs (version 0.1.1 -> 0.1.2)`
+
+**不是错误，可以忽略。** 这是 NeoForge 在告诉你「这个存档上次是用 0.1.1 打开的，现在是 0.1.2」。版本号来自 `level.dat` 里记录的 mod 列表，不是你装错了。
+
+只有当你**降级**（0.1.2 → 0.1.1）并且新版加了世界内容时，才需要留意。升版本时这条警告无害。
+
 ### `File mods/mmcr_nekojs-xxx.jar is not a valid mod file`
 
 `neoforge.mods.toml` 语法错误。最常见的是把两个键值对写在一行：
@@ -47,6 +53,27 @@ NekoJS 本身没加载成功。先单独排查 NekoJS，本附属无从谈起。
 4. `/nekojs error` 有报错吗？
 
 第四步最直接——脚本抛异常会被 NekoJS 捕获，不崩游戏，但整个脚本会被标记为 disabled。
+
+### 崩溃：`Unknown machine definition: xxx:yyy` / `RegistrationException`
+
+```
+net.neoforged.fml.ModLoadingException: Loading errors encountered:
+  - Modular Machinery CR (mmcr) encountered an error while dispatching FMLCommonSetupEvent
+    cn.howxu.mmcr.publicapi.registration.RegistrationException: Unknown machine definition: my_mod:smelter
+```
+
+意思是：结构递上去了，但 MMCR 那边没有同名机器。0.1.2 及更早的桥接会在这里直接崩，0.1.3 起只跳过并报错。
+
+对照日志按顺序看：
+
+1. 有没有 `MMCR/NekoJS startup declarations: N machine(s)`？`N = 0` → 先看上一节。
+2. 有没有 `MMCR/NekoJS submitted N machine definition(s) through a reopened window`？
+   - **有**：机器已进 MMCR，接下来正常。
+   - **没有，且有 `could not replay the definition window`**：MMCR 内部注册 API 变了，升级 bridge 或临时加
+     `-Dmmcrnekojs.disableStartupReplay=true` 让启动至少不崩（代价是脚本机器不存在）。
+3. 末尾若有 `MMCR/NekoJS skipped N declaration(s) that MMCR refused`，列表里会直接写出哪个 id 被拒。
+
+机器 id 必须和结构 id **完全一致**（`createMachine('a:b')` ↔ `createStructure('a:b')`），大小写、命名空间都算。
 
 ### `/nekojs error` 没输出，但也没生效
 
@@ -109,6 +136,21 @@ NekoJS 本身没加载成功。先单独排查 NekoJS，本附属无从谈起。
 - 结构里用的是 `event.levelSlot('my_mod:coil')`，而 `coil` 这个**等级类型**注册过
 
 ## 配方问题
+
+### 没装 JEI，怎么确认配方进去了
+
+日志里会有这条，属于正常：
+
+```
+Mixin config mixins/extras/mmcr.jei.mixins.json from jar(mods/mmcr-...jar) not applied as required mod 'jei' is missing
+```
+
+没 JEI 就没法看配方页，但配方本身仍然生效。两个替代验证方式：
+
+1. 直接让机器跑起来——有输入、有能量、产出对得上就说明配方加载了
+2. 看启动日志的 `Loaded N recipes`，数字比装本附属之前大
+
+配方**不依赖** JEI，JEI 只是展示层。
 
 ### JEI 里有配方，机器不跑
 

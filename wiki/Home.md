@@ -30,7 +30,7 @@ MMCREvents.startup(event => {
 | 客户端 JEI 文本 | `MMCREvents.client` | `MMCREvents.client`（放在 `client_scripts`） |
 | 额外生成的文件 | `kubejs/` | `nekojs/`，另有 `jsconfig.json` / `.neko_probe/` 供 IDE 补全 |
 
-**为什么结构不能放 `server_scripts`？** NekoJS 在自己的 mod 构造器里就同步跑完了 `STARTUP` 脚本，早于 NeoForge 的 `FMLConstructModEvent`；MMCR 收完机器定义后，在 `FMLCommonSetupEvent` 里冻结结构注册表，那之后没有任何窗口能再塞结构进去。KubeJS 之所以能热重载结构，是因为 MMCR 专门给 KubeJS 写了一套内容重载事务，而它对 NekoJS 没有这个照顾。
+**为什么结构不能放 `server_scripts`？** MMCR 的机器定义窗口开在 `mmcr` 自己的 `FMLConstructModEvent` 上，而 NeoForge 是「每个 mod 构造完就立刻给它发这个事件」——`mmcr` 排在 `nekojs` 前面，所以窗口关闭时 NekoJS 的 `STARTUP` 脚本还没跑。bridge 会在脚本跑完后把 MMCR 的启动阶段退回重放一次（见 [生命周期与时机](Getting-Started)）补上这一步。而 `FMLCommonSetupEvent` 里结构注册表一冻结，那之后没有任何窗口能再塞结构进去。KubeJS 之所以能热重载结构，是因为 MMCR 专门给 KubeJS 写了一套内容重载事务，而它对 NekoJS 没有这个照顾。
 
 细节见 [生命周期与时机](Getting-Started)。
 

@@ -240,21 +240,36 @@ ServerEvents.recipes(event => {
 
    | 阶段 | MMCR 做什么 | NekoJS 脚本状态 |
    |---|---|---|
-   | `NekoJSMod` 构造函数 | — | **`STARTUP` 脚本已执行完毕** |
-   | `FMLConstructModEvent` | `registerProductionForModStartup` → `ServiceLoader` 收机器定义 → post `RegisterMachineDefinitionsEvent` | — |
+   | `mmcr` 构造函数 → `mmcr` 的 `FMLConstructModEvent` | `registerProductionForModStartup` → `ServiceLoader` 收机器定义 → post `RegisterMachineDefinitionsEvent` | **脚本还没跑**（NekoJS 还没被构造） |
+   | `nekojs` 构造函数 | — | **`STARTUP` 脚本在这里执行完毕** |
    | `FMLCommonSetupEvent` | `completeProductionForModStartup` → post `RegisterMachineStructuresEvent`，然后 `freeze` + `commitStructures` | — |
    | `ModifyDefaultComponentsEvent` | `completeProductionRecipesAfterComponentsBound` → post `RegisterMachineRecipesEvent` | — |
    | 服务器启动 | — | `SERVER` 脚本此时才加载（**太晚**） |
 
-   MMCR 只对 **KubeJS** 延迟结构收集
-   （`StartupContentRegistration.completeProductionForModStartup` 里写死了
-   `ModList.get().isLoaded("kubejs") && !Plugin.startupScriptsLoaded()`），
-   对本附属没有这种照顾。因此 `ServerEventJS` **只暴露 `getAPI()`**——不提供
+   **关键一点：`FMLConstructModEvent` 不是"所有 mod 构造完之后统一发一次"，而是每个 mod 构造完
+   立刻单独发给自己**（`ModLoader.lambda$constructMods$0` → `container.constructMod()` 紧接着
+   `acceptEvent(new FMLConstructModEvent(...))`，跑在同一个并行 worker 里）。而 mod 构造顺序按加载
+   顺序，`mmcr` 排在 `nekojs` 前面——所以 MMCR 定义窗口关闭时，NekoJS 连构造函数都还没进。
+   MMCR 也只对 **KubeJS** 延迟结构收集
+   （`completeProductionForModStartup` 里写死了
+   `ModList.get().isLoaded("kubejs") && !Plugin.startupScriptsLoaded()`），对本附属没有这种照顾。
+
+   **本附属的处理**：`STARTUP` 脚本跑完、`afterScriptsLoaded` 回来的那一刻，bridge 调用
+   `StartupContentRegistration.resetForTesting()` 把 MMCR 的启动阶段退回 `NOT_STARTED`，
+   再跑一次 `registerProductionForModStartup(mmcr 的 mod 总线)`。此时离
+   `FMLCommonSetupEvent` 还早，没有任何内容被 commit，所以这次重放就是"第一次真正生效"的收集——
+   `ServiceLoader` 拿到的就是我们填满的 `DeclarationStore`。日志会打印
+   `submitted N machine definition(s) through a reopened window`。
+   （想关掉这个兼容层：`-Dmmcrnekojs.disableStartupReplay=true`。）
+
+   因此 `ServerEventJS` **只暴露 `getAPI()`**——不提供
    `createStructure` / `createLevel` / `createRecipe`，让错误在写脚本时就暴露，
    而不是运行时静默丢弃。
 
-   好消息是 NekoJS 的 `STARTUP` 脚本在 mod 构造函数里同步执行，**早于** MMCR 的
-   `FMLConstructModEvent`，所以 `startup_scripts` 声明的机器定义走 ServiceLoader 是 100% 可靠的。
+   万一 `resetForTesting()` / `registerProductionForModStartup(...)` 在某个 MMCR 版本里改签名，
+   bridge 只打一条 `could not replay the definition window` 错误，不会崩游戏；同样地，任何
+   MMCR 拒绝的 structure/level/modifier 只会被跳过并以 `skipped N declaration(s)` 汇总报告，
+   不会再让 `FMLCommonSetupEvent` 抛异常把启动打断。
 
 2. **没有程序化配方 builder。** `RecipeDraft` 只接受真实的 `Item` / `Ingredient` 对象，
    而 MMCR 的配方窗口（`ModifyDefaultComponentsEvent`）在服务端脚本加载之前就关了，
