@@ -40,6 +40,9 @@ public final class MachineRecipeSchema {
         fields.put("cancelIfPerTickFails", field("cancelIfPerTickFails", RecipeFieldKind.BOOLEAN, false, true, new JsonPrimitive(false), RecipeFieldRole.OTHER));
         fields.put("required_host_ids", field("required_host_ids", RecipeFieldKind.JSON, true, true, new JsonArray(), RecipeFieldRole.OTHER));
 
+        // NekoJS ships only the 7-arg convenience constructor in the release jar (the
+        // 11-arg variant exists on main but is absent from preview3), so pass the bare
+        // minimum: namespace, name, type, idPrefix, constructors, fields, unique keys.
         return new RecipeTypeDefinition(
                 NAMESPACE,
                 NAME,
@@ -47,11 +50,7 @@ public final class MachineRecipeSchema {
                 "mmcr_machine_recipe",
                 List.of(List.of("recipe_pool", "tick_time", "requirements")),
                 fields,
-                List.of(),
-                Map.of(),
-                Map.of(),
-                Map.of(),
-                null);
+                List.<String>of());
     }
 
     private static RecipeFieldDefinition field(String name, RecipeFieldKind kind, boolean array,

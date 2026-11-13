@@ -85,3 +85,27 @@ MMCR 有专门的延迟收集分支，NekoJS 没有。
 一律用 `var` 推断，或者走 `Ids.parse()`。这是两个 MC 版本能共用一份源码的关键。
 
 提交前跑一遍 CI（推 PR 就会自动编译两个版本）。
+
+### 别用自己写的 stub 验证
+
+这条是被坑出来的：早期用"手写的 NekoJS/MMCR 签名桩"做本地编译验证，结果桩是按自己的假设写的，
+编译通过了，CI 一跑全是真实 API 不匹配（`RecipeTypeDefinition` 的构造器参数个数、
+`EventBusJS` 需要 Graal 在 classpath 之类）。
+
+正确做法是把**真实发布 jar** 放上 classpath 再 `javac`：
+
+```bash
+# 1. 从 CurseMaven / Modrinth Maven 下 jar
+#    https://cursemaven.com/curse/maven/nekojs-1518701/9048720/nekojs-1518701-9048720.jar
+#    https://cursemaven.com/curse/maven/graal-1504336/8762962/graal-1504336-8762962.jar
+
+# 2. 对着真实 jar 查签名，别信文档或记忆
+javap -cp nekojs.jar:graal.jar com.tkisor.nekojs.api.recipe.definition.RecipeTypeDefinition
+
+# 3. 编译时 JDK 版本要够：26.1.2 的 jar 是 Java 25 字节码，JDK 21 连读都读不了
+javac -cp nekojs.jar:mmcr.jar:graal.jar <你的源码>
+```
+
+判断标准：**把某个依赖从 classpath 拿掉，应该能复现对应报错**。如果拿掉了照样 0 错误，
+说明验证器没在真正检查，结论不可信。
+

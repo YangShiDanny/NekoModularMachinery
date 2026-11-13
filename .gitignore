@@ -26,3 +26,13 @@ Thumbs.db
 # generated
 .javac.args
 javac.*.args
+
+# local verification harness (real jars + throwaway compile sandboxes)
+.checkjars.py
+.jarcheck/
+.jarchk-*/
+
+# local verification harness (real jars + throwaway compile sandboxes)
+.checkjars.py
+.jarcheck/
+.jarchk-*/

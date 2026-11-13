@@ -15,6 +15,7 @@ val mcVersion = property("minecraft_version") as String
 val neoVersion = property("neo_version") as String
 val javaLevel = (property("java_version") as String).toInt()
 val nekojsCoordinate = property("nekojsCoordinate") as String
+val graalCoordinate = property("graalCoordinate") as String
 val mmcrCoordinate = property("mmcrCoordinate") as String
 
 base { archivesName.set("mmcr_nekojs-$mcVersion") }
@@ -51,6 +52,9 @@ dependencies {
     // isTransitive = false: the upstream POMs pull in a wall of optional mod deps we
     // never touch, and CurseMaven/Modrinth POMs are not always resolvable offline.
     compileOnly(nekojsCoordinate) { isTransitive = false }
+    // NekoJS excludes Graal from its jar, but EventBusJS implements a Graal interface,
+    // so javac must see it or it fails with "cannot access ProxyExecutable".
+    compileOnly(graalCoordinate) { isTransitive = false }
     compileOnly(mmcrCoordinate) { isTransitive = false }
     compileOnly("com.google.code.findbugs:jsr305:3.0.2")
 }

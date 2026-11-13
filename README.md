@@ -106,14 +106,21 @@ mmcr-nekojs/
 | 依赖 | 来源 | 坐标 |
 |---|---|---|
 | NekoJS | CurseForge only → [CurseMaven](https://cursemaven.com) | `curse.maven:nekojs-1518701:<fileId>` |
+| **GraalMC** | CurseMaven | `curse.maven:graal-1504336:8762962` |
 | MMCR | Modrinth → Modrinth Maven | `maven.modrinth:modular-machinery-community-refoxed:<version>` |
 | NeoForge / MC | `maven.neoforged.net`，由 [ModDevGradle](https://github.com/neoforged/ModDevGradle) 处理 | — |
+
+> **为什么还要 GraalMC**：NekoJS 的 `EventBusJS` 实现了 `graal.graalvm.polyglot.proxy.ProxyExecutable`，
+> 但 NekoJS 打包时**故意把 Graal 排除在外**（它作为独立模组发布）。所以编译期必须把 GraalMC 也放上
+> classpath，否则 javac 会报 `cannot access ProxyExecutable`。这两个 jar 都只是 `compileOnly`，
+> 不会进产物。
 
 坐标写在 `versions/<mc>/gradle.properties` 里，改版本只动这一处：
 
 ```properties
 neo_version=21.1.238
 nekojsCoordinate=curse.maven:nekojs-1518701:9048720
+graalCoordinate=curse.maven:graal-1504336:8762962
 mmcrCoordinate=maven.modrinth:modular-machinery-community-refoxed:1.21.1-0.1.7
 ```
 
