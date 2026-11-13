@@ -1,17 +1,38 @@
 modLoader="javafml"
 loaderVersion="[4,)"
 license="MIT"
+
 [[mods]]
 modId="mmcr_nekojs"
 version="${file.jarVersion}"
 displayName="MMCR NekoJS Bridge"
 authors="YangShiDanny"
 description="Exposes Modular Machinery: Community Refoxed to NekoJS scripts, mirroring the official KubeJS integration."
+
 [[dependencies.mmcr_nekojs]]
-modId="neoforge" type="required" versionRange="[26.1.2.99,)"
+modId="neoforge"
+type="required"
+versionRange="[26.1.2.99,)"
+ordering="NONE"
+side="BOTH"
+
 [[dependencies.mmcr_nekojs]]
-modId="minecraft" type="required" versionRange="[26.1.2,26.2)"
+modId="minecraft"
+type="required"
+versionRange="[26.1.2,26.2)"
+ordering="NONE"
+side="BOTH"
+
 [[dependencies.mmcr_nekojs]]
-modId="nekojs" type="required" versionRange="[1.1.0,)"
+modId="nekojs"
+type="required"
+versionRange="[1.1.0,)"
+ordering="NONE"
+side="BOTH"
+
 [[dependencies.mmcr_nekojs]]
-modId="mmcr" type="required" versionRange="[0.1.7,)"
+modId="mmcr"
+type="required"
+versionRange="[0.1.7,)"
+ordering="NONE"
+side="BOTH"

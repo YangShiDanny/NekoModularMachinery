@@ -73,6 +73,29 @@ jobs:
           echo "version=$V" >> "$GITHUB_OUTPUT"
           echo "Building version $V for ${{ matrix.mc }}"
 
+      - name: Validate mods.toml
+        run: |
+          set -euo pipefail
+          python3 - "versions/${{ matrix.mc }}/src/main/resources/META-INF/neoforge.mods.toml" <<'PYEOF'
+          import sys, tomllib
+          path = sys.argv[1]
+          try:
+              data = tomllib.load(open(path, "rb"))
+          except Exception as exc:
+              print(f"::error file={path}::{exc}")
+              sys.exit(1)
+          mods = [m["modId"] for m in data.get("mods", [])]
+          if "mmcr_nekojs" not in mods:
+              print(f"::error file={path}::[[mods]] must declare the mod id, got {mods}")
+              sys.exit(1)
+          deps = {d["modId"] for d in data.get("dependencies", {}).get("mmcr_nekojs", [])}
+          for required in ("neoforge", "minecraft", "nekojs", "mmcr"):
+              if required not in deps:
+                  print(f"::error file={path}::missing required dependency {required}, got {sorted(deps)}")
+                  sys.exit(1)
+          print(f"{path}: OK mods={mods} deps={sorted(deps)}")
+          PYEOF
+
       - name: Compile
         run: >
           gradle ${{ matrix.project }}:build

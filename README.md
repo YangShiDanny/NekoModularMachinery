@@ -131,8 +131,8 @@ mmcrCoordinate=maven.modrinth:modular-machinery-community-refoxed:1.21.1-0.1.7
 
 ```bash
 # 需要 JDK 21（Gradle 守护进程用）；JDK 25 由 toolchain 自动下载
-gradle :mc1211:build     # → versions/1.21.1/build/libs/mmcr_nekojs-1.21.1-0.1.0.jar
-gradle :mc2612:build     # → versions/26.1.2/build/libs/mmcr_nekojs-26.1.2-0.1.0.jar
+gradle :mc1211:build     # → versions/1.21.1/build/libs/mmcr_nekojs-1.21.1-<version>.jar
+gradle :mc2612:build     # → versions/26.1.2/build/libs/mmcr_nekojs-26.1.2-<version>.jar
 ```
 
 仓库**不提交 wrapper**。第一次用请生成一次：

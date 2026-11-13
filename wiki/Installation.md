@@ -21,8 +21,8 @@
 Release 里有两个文件，按你的 Minecraft 版本选**一个**：
 
 ```
-mmcr_nekojs-1.21.1-0.1.0.jar   ← MC 1.21.1
-mmcr_nekojs-26.1.2-0.1.0.jar   ← MC 26.1.2
+mmcr_nekojs-1.21.1-<version>.jar   ← MC 1.21.1
+mmcr_nekojs-26.1.2-<version>.jar   ← MC 26.1.2
 ```
 
 名字里的版本号必须和你的 MC 版本对上。放错版本游戏会直接拒绝加载（`mods.toml` 里有
