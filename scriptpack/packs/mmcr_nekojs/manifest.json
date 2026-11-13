@@ -1,0 +1,30 @@
+{
+  "formatVersion": 1,
+  "id": "mmcr_nekojs",
+  "version": "0.1.0",
+  "name": "MMCR NekoJS recipe schema",
+  "description": "Adds the mmcr:machine_recipe recipe schema and MMCR script helpers.",
+  "authors": [
+    "MMCR NekoJS Bridge"
+  ],
+  "entries": {
+    "server": [
+      "smoke.js"
+    ]
+  },
+  "environment": {
+    "loaders": [
+      "neoforge"
+    ],
+    "minecraft": "*",
+    "mods": {
+      "mmcr": "*",
+      "nekojs": "*"
+    }
+  },
+  "capabilities": {
+    "provides": [
+      "machine_recipe_schema"
+    ]
+  }
+}

@@ -1,0 +1,28 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+out/
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+bin/
+run/
+
+# local dependency jars (CI resolves them from CurseForge / Modrinth instead)
+libs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# generated
+.javac.args
+javac.*.args

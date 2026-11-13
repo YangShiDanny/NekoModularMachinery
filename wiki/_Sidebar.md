@@ -1,0 +1,14 @@
+- [首页](Home)
+- **开始使用**
+  - [安装](Installation)
+  - [快速开始](Quick-Start)
+- **参考**
+  - [机器](Machines)
+  - [结构](Structures)
+  - [配方](Recipes)
+  - [等级与修饰符](Levels-and-Modifiers)
+  - [JEI 集成](JEI)
+- **迁移与排错**
+  - [从 KubeJS 迁移](KubeJS-Migration)
+  - [常见错误](Troubleshooting)
+  - [路线图](Roadmap)

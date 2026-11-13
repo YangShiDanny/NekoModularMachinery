@@ -1,0 +1,8 @@
+{
+  "machine.my_pack.blast_furnace": "Example Blast Furnace",
+  "level.my_pack.coil": "Coil Tier",
+  "block.my_pack.machine_casing": "Machine Casing",
+  "item.my_pack.blast_furnace_controller": "Example Blast Furnace Controller",
+  "jei.my_pack.blast_furnace.info": "Example blast furnace: one recipe every %s ticks.",
+  "jei.my_pack.iron_to_nugget.info": "Grinds iron ingots into nuggets."
+}

@@ -1,0 +1,8 @@
+{
+  "machine.my_pack.blast_furnace": "示例高炉",
+  "level.my_pack.coil": "线圈等级",
+  "block.my_pack.machine_casing": "机器外壳",
+  "item.my_pack.blast_furnace_controller": "示例高炉控制器",
+  "jei.my_pack.blast_furnace.info": "示例高炉：每 %s tick 处理一次配方。",
+  "jei.my_pack.iron_to_nugget.info": "把铁锭磨成铁粒。"
+}

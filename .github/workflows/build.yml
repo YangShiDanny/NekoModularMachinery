@@ -1,0 +1,187 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      force_release:
+        description: 'Create a release even if the tag already exists'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  GRADLE_VERSION: '9.8.2'
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Compile both MC lines. Each node needs a different Java level, so they run
+  # as separate matrix entries and fail independently.
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build MC ${{ matrix.mc }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - mc: '1.21.1'
+            project: ':mc1211'
+          - mc: '26.1.2'
+            project: ':mc2612'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDKs (21 for the daemon, 25 for the 26.1.2 toolchain)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: |
+            21
+            25
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: ${{ env.GRADLE_VERSION }}
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+
+      - name: Resolve version
+        id: ver
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            V="${GITHUB_REF_NAME#v}"
+          else
+            V="$(sed -n 's/^mod_version=//p' gradle.properties | tr -d '[:space:]')"
+          fi
+          if [[ -z "$V" ]]; then
+            echo "::error::could not determine mod version"
+            exit 1
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "Building version $V for ${{ matrix.mc }}"
+
+      - name: Compile
+        run: >
+          gradle ${{ matrix.project }}:build
+          -Pmod_version=${{ steps.ver.outputs.version }}
+          --stacktrace
+
+      - name: Verify jar contents
+        run: |
+          set -euo pipefail
+          JAR="$(ls versions/${{ matrix.mc }}/build/libs/*.jar | grep -v sources | head -1)"
+          echo "jar: $JAR"
+          unzip -l "$JAR"
+          # mods.toml must be present or NeoForge will refuse to load the mod.
+          if ! unzip -l "$JAR" | grep -q 'META-INF/neoforge.mods.toml'; then
+            echo "::error::neoforge.mods.toml missing from $JAR"
+            exit 1
+          fi
+          # ServiceLoader entry for the MMCR definition provider must ship too,
+          # otherwise machines declared in startup scripts are never submitted.
+          if ! unzip -l "$JAR" | grep -q 'MachineDefinitionProvider'; then
+            echo "::error::MachineDefinitionProvider service file missing from $JAR"
+            exit 1
+          fi
+
+      - name: Upload jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: jar-${{ matrix.mc }}
+          path: |
+            versions/${{ matrix.mc }}/build/libs/*.jar
+            !versions/${{ matrix.mc }}/build/libs/*-sources.jar
+          if-no-files-found: error
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # Publish a GitHub Release once every matrix entry compiled.
+  #   - tag push v*    -> release for that tag
+  #   - push to main   -> release v<mod_version>, skipped if the tag already exists
+  #   - manual dispatch-> same, plus force_release to overwrite
+  # ---------------------------------------------------------------------------
+  release:
+    name: Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Download jars
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Resolve tag
+        id: tag
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            TAG="$GITHUB_REF_NAME"
+          else
+            V="$(sed -n 's/^mod_version=//p' gradle.properties | tr -d '[:space:]')"
+            TAG="v$V"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "tag $TAG already exists"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "tag $TAG will be created"
+          fi
+
+      - name: List artifacts
+        run: ls -lh dist
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v') || steps.tag.outputs.exists == 'false' || inputs.force_release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: MMCR NekoJS Bridge ${{ steps.tag.outputs.tag }}
+          files: dist/*.jar
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          draft: false
+          prerelease: ${{ contains(steps.tag.outputs.tag, '-') }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          body: |
+            Exposes [Modular Machinery: Community Refoxed](https://modrinth.com/mod/modular-machinery-community-refoxed)
+            to [NekoJS](https://www.curseforge.com/minecraft/mc-mods/nekojs) scripts, mirroring the official
+            KubeJS integration.
+
+            | File | Minecraft | NeoForge | Java |
+            | --- | --- | --- | --- |
+            | `mmcr_nekojs-1.21.1-*.jar` | 1.21.1 | 21.1.238+ | 21 |
+            | `mmcr_nekojs-26.1.2-*.jar` | 26.1.2 | 26.1.2.99+ | 25 |
+
+            **Requires:** NekoJS 1.1.0-preview3+, Modular Machinery: Community Refoxed 0.1.7+.
+
+            Machine, structure, level and modifier declarations must live in `startup_scripts`
+            (NekoJS loads those before NeoForge's `FMLConstructModEvent`). See the README.
+
+      - name: Skip notice
+        if: steps.tag.outputs.exists == 'true' && !startsWith(github.ref, 'refs/tags/v') && !inputs.force_release
+        run: |
+          echo "::notice::Tag ${{ steps.tag.outputs.tag }} already exists and this is not a tag push, so nothing was released."
+          echo "Bump mod_version in gradle.properties, or re-run this workflow with force_release checked."

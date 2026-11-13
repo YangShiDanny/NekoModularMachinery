@@ -1,0 +1,63 @@
+{
+  "type": "mmcr:machine_recipe",
+  "constructors": [
+    [
+      "recipe_pool",
+      "tick_time",
+      "requirements"
+    ]
+  ],
+  "fields": {
+    "recipe_pool": {
+      "kind": "string"
+    },
+    "tick_time": {
+      "kind": "int",
+      "default": 20
+    },
+    "requirements": {
+      "kind": "json",
+      "array": true
+    },
+    "outputs": {
+      "kind": "json",
+      "array": true,
+      "optional": true
+    },
+    "modifiers": {
+      "kind": "json",
+      "array": true,
+      "optional": true
+    },
+    "priority": {
+      "kind": "int",
+      "default": 0,
+      "optional": true
+    },
+    "max_threads": {
+      "kind": "int",
+      "default": 1,
+      "optional": true
+    },
+    "parallelized": {
+      "kind": "boolean",
+      "default": false,
+      "optional": true
+    },
+    "allow_partial_outputs": {
+      "kind": "boolean",
+      "default": false,
+      "optional": true
+    },
+    "cancelIfPerTickFails": {
+      "kind": "boolean",
+      "default": false,
+      "optional": true
+    },
+    "required_host_ids": {
+      "kind": "json",
+      "array": true,
+      "optional": true
+    }
+  }
+}
