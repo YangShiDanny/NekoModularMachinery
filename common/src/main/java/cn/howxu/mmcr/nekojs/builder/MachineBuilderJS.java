@@ -109,11 +109,11 @@ public final class MachineBuilderJS {
     public MachineBuilderJS recipeBehavior(Consumer<RecipeHooks> handler) { this.recipeHandler = handler; return this; }
 
     public MachineBuilderJS register() {
-        if (!Machines.isRegistrationOpen()) {
-            throw new IllegalStateException("MMCR machine registration is closed; declare machine '"
-                    + id + "' from MMCREvents.startup");
-        }
-
+        // Deliberately no Machines.isRegistrationOpen() gate. That flag is only true while
+        // MMCR's own mod constructor has already run begin() and the content coordinator has not
+        // committed yet — which makes it depend on whether MMCR or NekoJS happens to be
+        // constructed first. The draft below is pure data; MMCR validates it when it reads
+        // DeclarationStore through the ServiceLoader during FMLConstructModEvent.
         var draft = Machines.machine(Ids.parse(id));
         draft.recipePool(Ids.parseAll(pools.toArray(new String[0])));
         if (displayNameKey != null) draft.displayNameKey(displayNameKey);

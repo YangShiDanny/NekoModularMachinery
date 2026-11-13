@@ -81,11 +81,11 @@ public final class DeclarationStore {
     }
 
     /**
-     * Called before SERVER scripts load. Only recipe declarations are scoped to a server
-     * reload — machine/structure/world definitions can never change after startup.
+     * Called before SERVER scripts load. Recipes are <em>not</em> cleared: they belong to the
+     * startup window (MMCR commits them in {@code ModifyDefaultComponentsEvent}, which is before
+     * any server script runs). Clearing them here would wipe perfectly valid declarations.
      */
     public static synchronized void beginServer() {
-        RECIPES.clear();
         serverPosted = false;
     }
 

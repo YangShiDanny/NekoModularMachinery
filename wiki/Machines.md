@@ -1,188 +1,201 @@
 # 机器
 
+> `cn.howxu.mmcr.nekojs.builder.MachineBuilderJS`
+>
+> 由 `event.createMachine(id)` 返回，链式配置，最后 `.register()` 提交。
+
+机器定义是 MMCR 收集的**第一个**东西（`FMLConstructModEvent`，通过 ServiceLoader）。它决定：控制器长什么样、行为怎么跑、能并行多少、能装什么修饰符。
+
+**只能在 `startup_scripts` 里注册。** 改完必须重启游戏。
+
+## 最小可用
+
 ```js
 MMCREvents.startup(event => {
-  event.createMachine('my_pack:smelter')
-    // ...链式调用...
-    .register()
+  event.createMachine('my_mod:smelter').register()
 })
 ```
 
-所有方法都返回 builder 本身，可以随意链式。**最后必须调 `.register()`**，否则什么都不会发生。
+只写了这一句也会得到一个可放置的控制器方块（`mmcr:smelter_controller`），只是没有外观配置、没有结构、没有配方。
 
----
+## 1. 身份与配方池
 
-## 基础
+### `recipePool(...ids)`
+
+声明这台机器读哪些配方池。
+
+```js
+.recipePool('my_mod:smelter')                    // 一个池
+.recipePool('my_mod:tier1', 'my_mod:tier2')      // 多个池
+```
+
+- **会覆盖**默认池，不是追加。
+- 省略时默认用「与机器 ID 同名的池」。
+- 多个机器可以绑定同一个池——这是做机器分级（同一台机器不同等级读同一批配方）的常见手法。
+
+### `displayNameKey(key)`
+
+设置本地化键。惯例 `machine.<命名空间>.<名字>`。
+
+```js
+.displayNameKey('machine.my_mod.smelter')
+```
+
+对应的 lang 键：
+
+```json
+{ "machine.my_mod.smelter": "铁熔炉" }
+```
+
+## 2. 外观
+
+### `appearance(blockId)`
+
+机器成型前的「基础方块」外观。给一个明确方块 ID 时，控制器在被放置但未成型时表现为该方块。
+
+```js
+.appearance('minecraft:iron_block')
+```
+
+### 控制器纹理
+
+纹理 ID 是资源路径，不含 `textures/` 前缀和 `.png` 后缀：`'my_mod:block/controller_front'` 对应 `assets/my_mod/textures/block/controller_front.png`。
 
 | 方法 | 说明 |
 |---|---|
-| `displayNameKey(key)` | 语言键。不写默认 `machine.<命名空间>.<路径>` |
-| `recipePool(...ids)` | 这个机器读哪些配方池。**默认只有一个：机器自己的 ID** |
-| `appearance(blockId)` | 外壳方块。结构里除控制器和端口外的格子就是它 |
-| `register()` | 提交 |
-
-`recipePool` 值得多说一句：默认池就是机器 ID，所以 `createMachine('my_pack:smelter')` 会自动读
-`my_pack:smelter` 池，不用显式写。想复用别的池才需要调。
-
----
-
-## 外观
-
-| 方法 | 说明 |
-|---|---|
-| `controllerTextures(front, side, top, bottom)` | 控制器四面对应纹理 |
-| `controllerTextures(front, other)` | 正面单独，其余三面相同 |
+| `controllerTextures(front, side, top, bottom)` | 六面分别指定（四参） |
+| `controllerTextures(front, otherFaces)` | 正面单独，其余五面统一（两参） |
 | `controllerFrontTexture(id)` | 只改正面 |
 | `controllerSideTexture(id)` | 只改侧面 |
 | `controllerTopTexture(id)` | 只改顶面 |
 | `controllerBottomTexture(id)` | 只改底面 |
-| `controllerBaseTexture(id)` | 控制器底座 |
-| `formedPortBaseTexture(id)` | 成型后端口底座 |
-| `controllerIdleOverlayTexture(id)` | 空闲时叠加层 |
-| `controllerActiveOverlayTexture(id)` | 运行时叠加层 |
-| `runningSound(id)` / `finishSound(id)` | 运行中 / 完成音效 |
-
-纹理参数是**资源路径**，不是方块 ID。比如 `controllerFrontTexture('my_pack:block/smelter_front')`
-对应文件 `assets/my_pack/textures/block/smelter_front.png`。
 
 ```js
-event.createMachine('my_pack:smelter')
-  .appearance('my_pack:casing')
-  .controllerTextures(
-    'my_pack:block/smelter_front',    // 正面
-    'my_pack:block/smelter_side',     // 其余三面
-    'my_pack:block/smelter_side',
-    'my_pack:block/smelter_side'
-  )
-  .controllerIdleOverlayTexture('my_pack:block/smelter_idle')
-  .controllerActiveOverlayTexture('my_pack:block/smelter_active')
-  .runningSound('minecraft:block.furnace.fire_crackle')
-  .finishSound('minecraft:entity.player.levelup')
-  .register()
+.controllerTextures('my_mod:block/smelter_front', 'my_mod:block/smelter_side')
 ```
 
----
+## 3. 其他贴图
 
-## 朝向
+| 方法 | 用途 |
+|---|---|
+| `controllerBaseTexture(id)` | 控制器底图（叠在面上的基础层） |
+| `formedPortBaseTexture(id)` | 成型后接口位置的底图 |
+| `controllerIdleOverlayTexture(id)` | 空闲时的叠加层（overlay） |
+| `controllerActiveOverlayTexture(id)` | 运行时的叠加层 |
+
+Idle/Active 两个 overlay 叠在控制器正面，用来做「亮灯」效果：空闲时半透明灰，运行时换成高亮版本。
+
+## 4. 音效
 
 | 方法 | 说明 |
 |---|---|
-| `allowVerticalFacing()` | 允许控制器上下朝向 |
-| `requireVerticalFacing()` | 强制上下朝向（只能上下） |
-| `fullyRotationallySymmetric()` | 四向完全对称，摆的时候不用管方向 |
+| `runningSound(id)` | 运行中的循环音效，如 `'minecraft:block.furnace.fire_crackle'` |
+| `finishSound(id)` | 完成一次配方时的音效 |
 
----
+## 5. 控制器朝向
 
-## 并行与工厂
+| 方法 | 效果 |
+|---|---|
+| `allowVerticalFacing()` | 允许控制器朝上/朝下 |
+| `requireVerticalFacing()` | 强制控制器只能朝上/朝下 |
+| `fullyRotationallySymmetric()` | 四个水平方向完全等价（结构旋转不变） |
+
+三个都不调时，控制器只有四个水平朝向，且结构按朝向旋转匹配。
+
+## 6. 修饰符 / 并行 / 工厂
 
 | 方法 | 说明 |
 |---|---|
-| `allowModifiers()` | 允许装**修饰符**（`registerModifier` 定义的那些） |
-| `allowMultithreading()` | 允许多线程 |
-| `allowParallelism()` | 允许**并行**（同时处理多份配方） |
-| `maxParallelAmount(n)` | 并行上限 |
-| `maxParallelism(n)` | 同上，别名 |
-| `factoryThreads(n)` | 开启工厂模式并设定线程数，`n > 0` 才生效 |
-| `networkInterface(maxCount, maxConnections)` | 网络接口上限，`maxCount >= 0` 才发 |
+| `allowModifiers()` | 允许结构里插修饰符槽 |
+| `allowMultithreading()` | 允许多线程处理配方 |
+| `allowParallelism()` | 允许并行（一次处理多份） |
+| `maxParallelAmount(n)` | 并行上限，默认 **1** |
+| `maxParallelism(n)` | 上面方法的别名 |
+| `factoryThreads(n)` | 启用工厂控制器并设定线程数 |
 
-**并行**（同一台机器同时跑多份相同配方）和**多线程**（工厂内多个线程跑不同配方）是两回事，
-别混。想要工厂模式就调 `factoryThreads()`。
+注意 `allowParallelism()` 只是**开开关**，实际能并行多少由 `maxParallelAmount` 和配方/修饰符共同决定。只调 `allowParallelism()` 而不调 `maxParallelAmount` 时，上限仍是 1。
 
 ```js
-event.createMachine('my_pack:mass_smelter')
-  .appearance('my_pack:casing')
+event.createMachine('my_mod:smelter')
   .allowParallelism()
   .maxParallelAmount(16)
   .allowMultithreading()
-  .factoryThreads(4)
-  .allowModifiers()
   .register()
 ```
 
----
+## 7. 网络接口
 
-## 行为钩子
+### `networkInterface(maxCount, maxConnections)`
 
-想在机器运行的不同时刻做点什么（发消息、改数据、放粒子）时用这两个。
-
-### `tickBehavior(hooks => ...)`
+在控制器上内建网络接口（用于自动 IO）。
 
 ```js
-.tickBehavior(hooks => {
-  hooks.serverTick(ctx => {
-    // 每 tick 调一次
-    // ctx.pos / ctx.level / ctx.machine ...
-  })
-})
+.networkInterface(4, 16)   // 最多 4 个接口，每个最多 16 条连接
 ```
 
-### `recipeBehavior(hooks => ...)`
+不调这个方法时不创建内建接口。
 
-| 钩子 | 什么时候 |
-|---|---|
-| `hooks.idleStart(cb)` | 从"有活干"变成"没活干" |
-| `hooks.idleEnd(cb)` | 从"没活干"变成"有活干" |
-| `hooks.beforeStart(cb)` | 一份配方开始加工前 |
-| `hooks.recipeTick(cb)` | 加工中每 tick |
-| `hooks.beforeFinish(cb)` | 一份配方完成前 |
-| `hooks.preServerTick(cb)` | 每 tick 最前面 |
-| `hooks.postServerTick(cb)` | 每 tick 最后面 |
+## 8. 行为回调
+
+这是让机器「不只是跑配方」的地方。见 [行为回调](Behaviors) 了解 Context 提供的全部方法。
 
 ```js
-.recipeBehavior(hooks => {
-  hooks.beforeFinish(ctx => {
-    console.info('配方完成 @ ' + ctx.pos)
+event.createMachine('my_mod:smelter')
+  .tickBehavior(hooks => {
+    hooks.serverTick(ctx => {
+      // 每个服务端 tick 都跑；ctx 是 TickContext
+      if (ctx.isDue(20) && ctx.smartInterfaceValue('temperature').orElse(0) > 100) {
+        ctx.screenText().line('过热！')
+      }
+    })
   })
-  hooks.idleStart(ctx => {
-    console.info('没活干了')
+  .recipeBehavior(hooks => {
+    hooks.idleStart(ctx => { /* 从空闲转入运行 */ })
+    hooks.beforeStart(ctx => { /* 可以改耗时、输出、取消 */ })
+    hooks.recipeTick(ctx => { /* 每 tick */ })
+    hooks.beforeFinish(ctx => { /* 可以丢弃产出、取消 */ })
+    hooks.idleEnd(ctx => { /* 回到空闲 */ })
   })
-})
+  .register()
 ```
 
-> ⚠️ 这两个钩子依赖 NekoJS 把 JS 函数转成 Java `Consumer`。如果你的 NekoJS 版本不支持
-> 宿主 `@FunctionalInterface` 桥接，调用时会抛类型错误。遇到这种情况改用 Java 侧扩展。
+## 9. `register()`
 
----
+提交声明。返回 `this`，所以可以链在最后。
 
-## 完整示例
+```js
+.register()
+```
+
+调用后：
+
+- 机器进入 `DeclarationStore`
+- MMCR 在 `FMLConstructModEvent` 时通过 ServiceLoader 取走
+- 控制器方块在注册阶段生成，ID 固定为 `mmcr:<机器名>_controller`
+
+**不要**重复注册同一个 ID，MMCR 会报重复。
+
+## 完整例子
 
 ```js
 MMCREvents.startup(event => {
-  const api = event.getAPI()
-
-  event.createMachine('my_pack:blast_furnace')
-    .displayNameKey('machine.my_pack.blast_furnace')
-    .appearance('my_pack:machine_casing')
-    .recipePool('my_pack:blast_furnace', 'my_pack:shared_smelting')
-    .controllerTextures('my_pack:block/bf_front', 'my_pack:block/bf_side')
-    .controllerActiveOverlayTexture('my_pack:block/bf_active')
-    .runningSound('minecraft:block.blastfurnace.fire_crackle')
-    .allowVerticalFacing()
+  event.createMachine('my_mod:smelter')
+    .recipePool('my_mod:smelter')
+    .displayNameKey('machine.my_mod.smelter')
+    .appearance('minecraft:iron_block')
+    .controllerTextures('my_mod:block/smelter_front', 'my_mod:block/smelter_side')
+    .controllerIdleOverlayTexture('my_mod:block/smelter_idle')
+    .controllerActiveOverlayTexture('my_mod:block/smelter_active')
+    .runningSound('minecraft:block.furnace.fire_crackle')
+    .finishSound('minecraft:entity.player.levelup')
     .allowModifiers()
     .allowParallelism()
     .maxParallelAmount(8)
-    .factoryThreads(2)
-    .recipeBehavior(hooks => {
-      hooks.beforeFinish(ctx => console.info('烧完了 @ ' + ctx.pos))
-    })
     .register()
 })
 ```
 
----
+## 下一步
 
-## 常见疑问
-
-**问：控制器方块怎么来的？**
-MMCR 会给每个 `createMachine` 自动生成一个控制器方块，ID 就是你的机器 ID。
-本附属不单独提供"设置控制器方块"的方法。
-
-**问：机器为什么不显示？**
-检查 `appearance()` 指向的方块是否真实存在。用了自定义方块就得在
-`startup_scripts` 里先用 `RegistryEvents` 注册它。
-
-**问：改了 `maxParallelAmount` 没效果？**
-必须先调 `allowParallelism()`。上限方法只是设值，开关在那个。
-
-**问：`factoryThreads` 和 `maxParallelAmount` 能一起用吗？**
-可以，但语义不同，见上面"并行与工厂"。
+- [结构](Structures) —— 给机器一个形状
+- [行为回调](Behaviors) —— 自定义 tick 与配方生命周期

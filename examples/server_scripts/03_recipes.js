@@ -4,8 +4,8 @@
 //   A. event.recipes.mmcr.machine_recipe(...) —— schema 已由本 mod 注册，开箱可用
 //   B. event.custom({ type:'mmcr:machine_recipe', ... }) —— 原始 JSON，一定可用
 //
-// 注意：MMCREvents.startup 里还有程序化的 event.createRecipe(...)，但 MMCR 只在启动期
-// 收集一次静态配方，所以那条路必须写在 startup_scripts，不能放这里。
+// 本 mod 不提供程序化配方 builder：它需要真实的 Item 对象，而 MMCR 的配方窗口在
+// 服务端脚本加载前就关了，startup 阶段物品注册表又还没就绪。数据 JSON 是唯一可靠的路。
 
 const api = MMCR.getAPI()
 

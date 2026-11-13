@@ -73,12 +73,8 @@ public final class MMCRNekoJSPlugin implements NekoJSPlugin {
             case SERVER -> {
                 MMCRNekoEvents.postServer();
                 DeclarationStore.markServerPosted();
-                if (!DeclarationStore.recipes().isEmpty()) {
-                    MMCRNekoJS.LOG.warn("MMCR/NekoJS: {} recipe(s) registered programmatically from server scripts "
-                                    + "will be ignored — MMCR collects static recipes during startup. "
-                                    + "Move them to startup_scripts or use data JSON + /nekojs reload.",
-                            DeclarationStore.recipes().size());
-                }
+                MMCRNekoJS.LOG.debug("MMCR/NekoJS server scripts loaded ({} startup recipe(s) already committed)",
+                        DeclarationStore.recipes().size());
             }
             case CLIENT -> MMCRNekoEvents.postClient();
             default -> { }

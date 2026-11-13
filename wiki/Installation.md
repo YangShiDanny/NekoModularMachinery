@@ -1,94 +1,90 @@
 # 安装
 
-## 你需要什么
+## 1. 你需要什么
 
-| 组件 | 版本 | 从哪下 |
+| 组件 | 必需 | 说明 |
 |---|---|---|
-| Minecraft | 1.21.1 **或** 26.1.2 | — |
-| NeoForge | 21.1.238+ / 26.1.2.99+ | [neoforged.net](https://neoforged.net) |
-| Modular Machinery: Community Refoxed | 0.1.7+ | [Modrinth](https://modrinth.com/mod/modular-machinery-community-refoxed) |
-| NekoJS | 1.1.0-preview3+ | [CurseForge](https://www.curseforge.com/minecraft/mc-mods/nekojs) |
-| GraalJS | 25.1.3.7+ | NekoJS 的页面会写明对应版本 |
-| **本附属** | 对应版本 | [Releases](https://github.com/YangShiDanny/NekoModularMachinery/releases) |
+| **Modular Machinery: Community Refoxed** | ✅ | 提供机器框架与 `publicapi` |
+| **NekoJS** | ✅ | 脚本引擎（GraalJS） |
+| **GraalMC** | ✅ | **NekoJS 的前置**，独立模组，NekoJS 自己的 jar 里不含 Graal 运行时 |
+| **本附属**（`mmcr_nekojs`） | ✅ | 桥接层 |
+| NeoForge | ✅ | 版本必须与 MC 版本匹配 |
+| JEI | 可选 | 装了才有配方页与结构预览 |
 
-### 别装这些
+GraalMC 是最容易被漏掉的一个。NekoJS 构建时**故意把 Graal 排除在自己的 jar 外**（它作为独立模组发布），少了它游戏会起不来。
 
-**KubeJS / Rhino / NekuJS** —— 它们和 NekoJS 是同一类东西（脚本引擎），同时装会冲突。
-这个附属的价值就是让你在没有 KubeJS 的情况下用 MMCR。
+## 2. 版本对应
 
-### 选哪个 jar
+本附属有两条独立的版本线，**不能混用**：
 
-Release 里有两个文件，按你的 Minecraft 版本选**一个**：
+| | Minecraft **1.21.1** | Minecraft **26.1.2** |
+|---|---|---|
+| Java | 21 | 25 |
+| NeoForge | `21.1.238` 及以上 | `26.1.2.99` 及以上 |
+| MMCR | `1.21.1-0.1.7` | `26.1.2-0.1.7` |
+| NekoJS | `1.1.0-preview3` | `1.1.0-preview3` |
+| GraalMC | `25.1.3.7` | `25.1.3.7` |
+| 附属 jar | `mmcr_nekojs-1.21.1-<version>.jar` | `mmcr_nekojs-26.1.2-<version>.jar` |
 
-```
-mmcr_nekojs-1.21.1-<version>.jar   ← MC 1.21.1
-mmcr_nekojs-26.1.2-<version>.jar   ← MC 26.1.2
-```
+附件文件名里的 `1.21.1` / `26.1.2` 就是 MC 版本，装错版本会在启动时报 `Missing or unsupported mandatory dependencies`。
 
-名字里的版本号必须和你的 MC 版本对上。放错版本游戏会直接拒绝加载（`mods.toml` 里有
-`versionRange` 检查）。
+> NeoForge 的版本号比 MC 多一段：26.1.2 的 NeoForge 是 `26.1.2.99` 这种四段式，`26.1.2` 本身不是有效版本号。
 
----
+## 3. 放哪
 
-## 安装步骤
-
-1. 把上表所有 jar 丢进 `mods/` 文件夹。
-2. 启动一次游戏，让它生成目录结构。
-3. 退出游戏，你的 `nekojs/` 目录现在长这样：
+全部丢进同一个 `mods/` 目录：
 
 ```
 .minecraft/
-└── nekojs/
-    ├── startup_scripts/     ← 机器、结构、等级、修饰符
-    ├── server_scripts/      ← 配方
-    ├── client_scripts/      ← JEI 说明
-    └── assets/
+├── mods/
+│   ├── mmcr-neoforge-mc26.1.2-0.1.7.jar
+│   ├── nekojs-neoforge-26.1.2-1.1.0-preview3.jar
+│   ├── graalmc-neoforge-25.1.3.7.jar
+│   └── mmcr_nekojs-26.1.2-0.1.1.jar        ← 本附属
+└── nekojs/                                  ← 首次启动后自动生成
+    ├── startup_scripts/
+    ├── server_scripts/
+    └── client_scripts/
 ```
 
-4. 把脚本写进去，重启游戏。
+`nekojs/` 目录由 NekoJS 在第一次启动时创建。**如果它没被创建，说明 NekoJS 本身没加载成功**，先解决那个再谈本附属。
 
-**如果 `nekojs/` 目录没出现**，说明 NekoJS 没加载成功——先单独排查 NekoJS，别急着装本附属。
+## 4. 确认装好了
 
----
-
-## 脚本放哪：一张表说清
-
-| 你要做的事 | 放在 | 改完要重启吗 |
-|---|---|---|
-| 定义机器 | `startup_scripts/` | ✅ 要 |
-| 定义结构 | `startup_scripts/` | ✅ 要 |
-| 定义等级类型 / 等级 | `startup_scripts/` | ✅ 要 |
-| 定义修饰符 | `startup_scripts/` | ✅ 要 |
-| 注册机器外壳方块 / 物品 | `startup_scripts/` | ✅ 要 |
-| 写配方 | `server_scripts/` | ❌ `/nekojs reload` |
-| JEI 配方说明 | `client_scripts/` | ❌ `/nekojs reload client` |
-
-为什么结构也必须在 startup：见[首页那段说明](Home#一个必须先知道的事)。
-简单讲，MMCR 在 NeoForge 的 `FMLCommonSetupEvent` 就把结构表冻住了，而 `server_scripts`
-要到服务器启动之后才加载——晚了整整一个阶段。
-
----
-
-## 验证装好了
-
-进游戏后看日志，应该能找到：
+启动一次游戏，在日志里搜 `MMCR <-> NekoJS bridge ready`：
 
 ```
-[mmcr_nekojs] MMCR/NekoJS submitted N machine definition(s): [...]
-[mmcr_nekojs] MMCR/NekoJS submitted N structure(s), N level(s), N modifier(s)
+[main/INFO] [mmcr_nekojs/]: MMCR <-> NekoJS bridge ready (KubeJS-free)
 ```
 
-没有这两行说明脚本没跑或者没声明任何东西。
+再搜 `startup declarations`，它会在启动脚本跑完后打印你声明了多少东西：
 
-也可以直接开 JEI，搜你定义的机器——它在"机器"分类里应该能看到。
+```
+[main/INFO] [mmcr_nekojs/]: MMCR/NekoJS startup declarations: 2 machine(s) [my_mod:smelter, my_mod:cracker], 2 structure(s), 1 level(s), 0 modifier(s)
+```
 
----
+这两行都在，就说明桥接层通了。机器数量是 0 也不一定是错——可能你还没写脚本。
 
-## 服务端 / 客户端都要装吗
+## 5. 装完先做一件事：确认没有 KubeJS
 
-**两边都要。** 本附属在双端都有逻辑：
+本附属与 KubeJS **不冲突也不共用**，但如果你同时装着 KubeJS，MMCR 会走它自己的 KubeJS 集成，同时本附属也会注册一遍同名内容。同一个机器 ID 注册两次会让 MMCR 直接报重复。
 
-- 服务端：机器定义、结构、配方注册
-- 客户端：控制器外观、JEI 工作台与配方说明
+要么只用一个，要么保证两边的 ID 完全不重叠。
 
-只装一边会连不上或者控制器显示异常。
+## 6. 本地构建（可选）
+
+如果你想自己编译：
+
+```bash
+./gradlew :mc1211:build     # 1.21.1
+./gradlew :mc2612:build     # 26.1.2
+# 产物：versions/<mc>/build/libs/*.jar
+```
+
+依赖从 CurseMaven（NekoJS / GraalMC）与 Modrinth Maven（MMCR）拉取，不需要手动放 jar。
+仓库里没有 gradle wrapper 的二进制，第一次用之前跑一次 `gradle wrapper --gradle-version 9.8.2`。
+
+## 下一步
+
+- [生命周期与时机](Getting-Started) —— 先搞清楚什么能写在哪
+- [快速开始](Quick-Start) —— 写第一台机器

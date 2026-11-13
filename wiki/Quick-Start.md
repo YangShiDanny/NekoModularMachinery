@@ -1,175 +1,208 @@
 # 快速开始
 
-从零做一个能用的机器：**铁熔炉**——3×3×1 的外壳，中间放控制器，消耗铁矿和能量产出铁锭。
+从零做一台能跑的机器：**铁熔炉**——3×3 的铁架，中心是控制器，四周留 4 个接口位，1 铁矿 + 10 FE/t 换 1 铁锭。
 
----
+> 本页假设你已按 [安装](Installation) 装好 MMCR + NekoJS + GraalMC + 本附属，并成功启动过一次游戏（`nekojs/` 目录已生成）。
 
-## 1. 建目录
+## 目录职责
 
+| 目录 | 放什么 | 改完怎么生效 |
+|---|---|---|
+| `nekojs/startup_scripts/` | 机器定义、结构、等级、修饰符 | 重启游戏 |
+| `nekojs/server_scripts/` | 配方（`ServerEvents.recipes`） | `/nekojs reload` |
+| `nekojs/client_scripts/` | JEI 配方说明 | `F3+T` |
+| `nekojs/assets/<ns>/lang/` | 翻译 | `F3+T` |
+
+子目录（如 `startup_scripts/machines/`）只是整理用，不影响加载阶段。
+
+## 第 1 步：注册机器定义
+
+新建 `nekojs/startup_scripts/smelter.js`：
+
+```js
+MMCREvents.startup(event => {
+  event
+    .createMachine('my_mod:smelter')
+    .recipePool('my_mod:smelter')
+    .displayNameKey('machine.my_mod.smelter')
+    .register()
+})
 ```
-.minecraft/nekojs/
-├── startup_scripts/
-│   └── smelter.js
-├── server_scripts/
-│   └── smelter_recipes.js
-└── assets/
-    └── my_pack/lang/zh_cn.json
-```
 
----
+逐个说：
 
-## 2. 定义机器和结构
+- `MMCREvents.startup(cb)` —— 本附属注册的事件组。回调在 NekoJS 的 `STARTUP` 阶段执行。
+- `event.createMachine(id)` —— 返回 `MachineBuilderJS`，参数是 `命名空间:名字`。
+- `.recipePool(...)` —— 声明这台机器读哪个配方池。省略时默认用机器 ID 同名池。**机器 ID 和配方池 ID 是两个独立概念**，多个机器可以共用一个池。
+- `.displayNameKey(key)` —— 翻译键。惯例是 `machine.<命名空间>.<名字>`，但任意键都行。
+- `.register()` —— 提交。此时 MMCR 会生成控制器方块，但还没有结构、没有配方。
 
-`startup_scripts/smelter.js`：
+最简版本可以只写 `event.createMachine('my_mod:smelter').register()`。
+
+## 第 2 步：绑定结构
+
+**同一份脚本**里继续写（不要挪到 `server_scripts`，原因见 [生命周期](Getting-Started)）：
 
 ```js
 MMCREvents.startup(event => {
   const api = event.getAPI()
 
-  // ---- 机器 ----
-  event.createMachine('my_pack:smelter')
-    .displayNameKey('machine.my_pack.smelter')
-    .appearance('minecraft:iron_block')   // 外壳方块
-    .recipePool('my_pack:smelter')        // 这个机器读哪个配方池
+  event
+    .createMachine('my_mod:smelter')
+    .recipePool('my_mod:smelter')
+    .displayNameKey('machine.my_mod.smelter')
     .register()
 
-  // ---- 结构 ----
-  // 一次 pattern() = 一个 z 层（按调用顺序从 z 小到大）
-  // 每个字符串 = 一层里的一行；第一个字符串是 y 最小（最底层）
-  // 每个字符 = 一格，从左（x 小）到右
-  event.createStructure('my_pack:smelter')
-    .pattern('BBB')     // z = 0 层（3×1 的一个横排）
-    .pattern('BCB')     // z = 1 层，中间是控制器
-    .pattern('BBB')     // z = 2 层
+  event
+    .createStructure('my_mod:smelter')
+    .pattern(
+      'BHB',   // y = 0，最底层
+      'HCH',   // y = 1
+      'BHB'    // y = 2，最顶层
+    )
     .set('B', api.block('minecraft:iron_block'))
-    .set('C', api.block('minecraft:iron_block'))   // 占位，会被替换成控制器方块
+    .set('H', api.anyOf(
+      api.block('minecraft:iron_block'),
+      api.itemInput(),
+      api.itemOutput(),
+      api.energyInput()
+    ))
     .controller('C')
     .build()
 })
 ```
 
-三个必须先搞明白的点：
+### 坐标怎么数
 
-- **一次 `pattern()` 是一个水平层（z）**，不是一个竖直面。想要 3×3 的地板，就调三次，
-  每次传一行 3 个字符；不是写三次行。
-- **字符串长度必须一致**。混进 4 个字符的行，整个结构会错位。
-- **空格 `' '` 表示"这一格不检查"**，不是"必须是空气"。真要要求空气就 `.set('#', api.air())`。
+`pattern()` **每调用一次就是一个 z 层**；同一次调用里的每个字符串是一行（x 序列），**第一个字符串是 y 最小（最底层）**。
 
----
+```
+.pattern('BHB', 'HCH', 'BHB')
+        │      │      └── y=2  最顶层
+        │      └───────── y=1  中间层
+        └──────────────── y=0  最底层
+```
 
-## 3. 写配方
-
-`server_scripts/smelter_recipes.js`：
+想往上堆第二层，再调一次 `pattern(...)`——它会成为 z=1 的那一片：
 
 ```js
-const api = MMCR.getAPI()
+.pattern('BHB', 'HCH', 'BHB')   // z = 0
+.pattern('BBB', 'B#B', 'BBB')   // z = 1
+```
 
+三个坑：
+
+1. **每次 `pattern()` 里的行必须等宽**。写了 3 个字符就别混进 4 个的，否则整个结构错位且不报错。
+2. **空格 `' '` 不是空气**，是「这一格不检查」。要强制空气用 `api.air()`。
+3. **`controller('C')` 的符号不要再用 `set('C', ...)` 绑一次**。控制器方块由 MMCR 生成，你只需要占位。
+
+### 关于 `H`
+
+`H` 是接口预留位：`api.anyOf(...)` 表示「这些条件满足任意一个都算对」。所以这个位置放铁块也行，放物品输入接口/物品输出接口/能量接口也行。
+
+如果不做这一步，结构成型后没有任何地方能接管道和线缆，配方也就没法输入输出。
+
+## 第 3 步：写翻译键
+
+`nekojs/assets/my_mod/lang/zh_cn.json`：
+
+```json
+{
+  "machine.my_mod.smelter": "铁熔炉",
+  "recipe_pool.my_mod.smelter": "铁熔炉",
+  "item.mmcr.smelter_controller": "铁熔炉 控制器",
+  "block.mmcr.smelter_controller": "铁熔炉 控制器"
+}
+```
+
+控制器方块**固定在 `mmcr` 命名空间**，你的机器叫 `my_mod:smelter`，控制器就是 `mmcr:smelter_controller`。
+
+## 第 4 步：写配方
+
+新建 `nekojs/server_scripts/smelter_recipes.js`。MMCR 的配方就是 `mmcr:machine_recipe` 这个标准配方类型，所以用 NekoJS 的 `ServerEvents.recipes` 即可——和 KubeJS 版写法一致。
+
+**推荐写法**（用本附属注册的 schema，位置参数）：
+
+```js
 ServerEvents.recipes(event => {
-  event.recipes.mmcr.machine_recipe('my_pack:smelter', 100, [
-    api.itemInputRequirement('minecraft:iron_ore', 1),
-    api.energyRequirement('input', 20),
-    api.itemOutputRequirement('minecraft:iron_ingot', 1, 1.0)
-  ]).id('my_pack:iron_smelting')
+  event.recipes.mmcr.machine_recipe(
+    'my_mod:smelter',   // 配方池 ID
+    200,                // tick_time，200 tick = 10 秒
+    [
+      { type: 'minecraft:item', io: 'input',  item: 'minecraft:iron_ore', count: 1 },
+      { type: 'minecraft:item', io: 'output', stack: { id: 'minecraft:iron_ingot', count: 1 } },
+      { type: 'neoforge:energy', io: 'input', fe_per_tick: 10 }
+    ]
+  ).id('my_mod:smelter_iron')
 })
 ```
 
-参数依次是：**配方池 ID**、**加工时间（tick，20 = 1 秒）**、**需求数组**。
+**原始 JSON 写法**（等价，字段名和 MMCR 官方文档完全一致）：
 
-配方改完 `/nekojs reload` 就生效，不用重启。
-
----
-
-## 4. 加个显示名（可选）
-
-`assets/my_pack/lang/zh_cn.json`：
-
-```json
-{
-  "machine.my_pack.smelter": "铁熔炉"
-}
+```js
+ServerEvents.recipes(event => {
+  event.custom({
+    type: 'mmcr:machine_recipe',
+    recipe_pool: 'my_mod:smelter',
+    tick_time: 200,
+    requirements: [
+      { type: 'minecraft:item', io: 'input',  item: 'minecraft:iron_ore', count: 1 },
+      { type: 'minecraft:item', io: 'output', stack: { id: 'minecraft:iron_ingot', count: 1 } },
+      { type: 'neoforge:energy', io: 'input', fe_per_tick: 10 }
+    ]
+  }).id('my_mod:smelter_iron')
+})
 ```
 
-`assets/my_pack/lang/en_us.json`：
+字段含义：
 
-```json
-{
-  "machine.my_pack.smelter": "Iron Smelter"
-}
-```
+| 字段 | 说明 |
+|---|---|
+| `type` | 固定 `mmcr:machine_recipe` |
+| `recipe_pool` | **配方池 ID**，不是机器 ID（本例两者同名，但不是必须） |
+| `tick_time` | 总耗时，tick，必须 > 0 |
+| `requirements` | 数组；每项用 `type` 定类型、`io` 定输入输出 |
 
-不写也能跑，界面上会显示原始的 key。
+物品输入用 `item` + `count`；物品输出必须用 `stack: { id, count }`——**别把输出写成输入的格式**，这是最常见的错。
 
----
+进游戏后 `/nekojs reload`，JEI 里就能看到这条配方了。
 
-## 5. 重启，验证
+## 第 5 步：验证
 
-启动日志里应该出现：
+1. `/mmcr build my_mod:smelter` —— 快速修建，不用手动摆
+2. 右键控制器成型
+3. 往接口里塞铁矿 + 通电
+4. 看它开始工作
 
-```
-[mmcr_nekojs] MMCR/NekoJS submitted 1 machine definition(s): [my_pack:smelter]
-[mmcr_nekojs] MMCR/NekoJS submitted 1 structure(s), 0 level(s), 0 modifier(s)
-```
+## 完整脚本
 
-然后：
-
-1. 拿控制器物品（JEI 里搜"铁熔炉"，或者自己做个配方给它）
-2. 按 `pattern()` 在地上铺 3×3 的铁块（共 9 格），控制器会占中间那格
-3. 右键控制器成型
-4. 在结构表面装上物品/能量端口
-
-如果不成型，看[常见错误](Troubleshooting)。
-
----
-
-## 6. 加一个等级（可选）
-
-让机器认"线圈等级"：放铁块是一级，放钻石块是更高级。
+`nekojs/startup_scripts/smelter.js`：
 
 ```js
 MMCREvents.startup(event => {
   const api = event.getAPI()
 
-  event.createLevelType('my_pack:coil')
-    .displayNameKey('level.my_pack.coil')
+  event.createMachine('my_mod:smelter')
+    .recipePool('my_mod:smelter')
+    .displayNameKey('machine.my_mod.smelter')
     .register()
 
-  event.createLevel('my_pack:coil_basic')
-    .type('my_pack:coil')
-    .state('minecraft:iron_block')
-    .priority(0)
-    .register()
-
-  event.createLevel('my_pack:coil_elite')
-    .type('my_pack:coil')
-    .state('minecraft:diamond_block')
-    .priority(10)
-    .modifier(api.modifierDefinition([
-      api.modifier('duration', 'recipe', 0.7, 'multiply', false)   // 快 30%
-    ]))
-    .register()
-
-  // 结构里用 L 引用这个等级类型
-  event.createStructure('my_pack:smelter')
-    .pattern('BBB')
-    .pattern('CLC')                            // C = 控制器占位，L = 等级槽
-    .pattern('BBB')
+  event.createStructure('my_mod:smelter')
+    .pattern('BHB', 'HCH', 'BHB')
     .set('B', api.block('minecraft:iron_block'))
-    .set('C', api.block('minecraft:iron_block'))
-    .set('L', event.levelSlot('my_pack:coil'))   // ← 等级槽
+    .set('H', api.anyOf(
+      api.block('minecraft:iron_block'),
+      api.itemInput(), api.itemOutput(), api.energyInput()
+    ))
     .controller('C')
     .build()
 })
 ```
 
-`priority` 大的优先匹配。装配饰符和等级细节见[等级与修饰符](Levels-and-Modifiers)。
-
----
+`nekojs/server_scripts/smelter_recipes.js`：见第 4 步。
 
 ## 下一步
 
-| 想做的事 | 看这页 |
-|---|---|
-| 改外观、纹理、音效、并行数 | [机器](Machines) |
-| 复杂结构、端口数量/等级要求 | [结构](Structures) |
-| 概率产出、流体、能量、修饰符 | [配方](Recipes) |
-| 从 KubeJS 脚本搬过来 | [从 KubeJS 迁移](KubeJS-Migration) |
+- [结构](Structures) —— 多层结构、等级槽、端口数量限制
+- [配方](Recipes) —— 流体、概率产出、并行、等级需求
+- [机器](Machines) —— 外观、音效、tick 行为、并行度

@@ -9,9 +9,11 @@ import cn.howxu.mmcr.publicapi.recipe.modifier.ModifierBundle;
 /**
  * Event object received by {@code MMCREvents.startup} callbacks.
  *
- * <p>This is the only event where machine/structure/level/modifier declarations are accepted:
- * MMCR freezes those registries during {@code FMLCommonSetupEvent}, and NekoJS STARTUP scripts
- * finish before MMCR even opens the window.
+ * <p>This is the only window where declarations are accepted. NekoJS builds its STARTUP script
+ * context inside {@code NekoJSMod}'s constructor, i.e. before {@code FMLConstructModEvent}, and
+ * MMCR commits machines there, structures in {@code FMLCommonSetupEvent} and recipes in
+ * {@code ModifyDefaultComponentsEvent}. All three are therefore downstream of this event —
+ * which is also why structures and recipes cannot live in {@code server_scripts}.
  */
 public final class StartupEventJS {
     private final MMCRApiJS api = new MMCRApiJS();

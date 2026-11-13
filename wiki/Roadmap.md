@@ -1,111 +1,74 @@
 # 路线图
 
-当前实现覆盖了 MMCR KubeJS 集成的**核心部分**：机器、结构、等级、修饰符、配方、JEI。
-下面这些还没做，按实用性排序。
+## 已完成
 
----
+### 双版本支持
 
-## 想要但没有的
+| | 1.21.1 | 26.1.2 |
+|---|---|---|
+| Java | 21 | 25 |
+| 编译验证 | ✅ 0 错误 | ✅ 0 错误 |
+| 共享源码 | ✅ | ✅ |
 
-### 1. 网络请求 / 智能接口运行时值
+两个版本的 `publicapi` 差异只有「26.1.2 少了联动模组相关条目」，所以共享层能用一份源码。已用真实发布 jar 做过编译验证（不是自造 stub）。
 
-KubeJS 版的 `MMCR.getAPI().networkInterfaces`、`sendRequest`、`smartInterfaceInput`
-这类需要**运行时访问机器状态**的 API。
+### 注册链路
 
-**为什么没做**：这些方法签名依赖 MMCR 内部的网络包与运行时上下文，不是纯数据构造，
-在 scripting 层暴露需要额外的生命周期钩子。
-
-**现在怎么办**：写 Java 扩展，或者用 `recipeBehavior` 的钩子间接实现。
-
-### 2. `DataValue`
-
-KubeJS 的 `DataValue` 是可变数值容器。MMCR 的 publicapi 有对应能力，
-但 NekoJS 侧没有对等的可变类型绑定。
-
-**现在怎么办**：用 `readableNumber` 系列做只读展示。
-
-### 3. 化学品 / 魔法类快捷工厂
-
-`chemicalTagInput`、`manaInput`、`sourceInput`、`stressInput`、`airInput` 这类。
-
-**为什么没做**：这些依赖具体联动模组（Mekanism / Botania / Ars Nouveau / Create / PneumaticCraft），
-而且 **26.1.2 上 MMCR 直接把对应 API 砍掉了**（1.21.1 有 10 个端口族，26.1.2 只剩 6 个）。
-
-**现在怎么办**：用 `event.custom({...})` 手写 JSON，或者用 `api.fluidInputRequirement` 的写法类推。
-
-### 4. 控制器渲染器扩展
-
-MMCR 的 `RegisterControllerRenderersEvent`，允许自定义控制器外观渲染。
-
-**现在怎么办**：只能改纹理（`controllerTextures` 系列）。
-
-### 5. KubeJS 长名别名
-
-`anyOfItemInput()`、`anyOfItemPorts()` 这类。
-
-**为什么没做**：本附属直接用短名（`itemInput()`、`itemPorts()`），已经够用。
-
-**现在怎么办**：用短名。
-
-### 6. `readableNumberBigInt` / `readableNumberForSlot`
-
-**现在怎么办**：用 `readableNumberExact()`，输出 `1,234,567` 这种。
-
----
-
-## 上游依赖的坑
-
-### 结构不能热重载
-
-MMCR 只在 `FMLCommonSetupEvent` 收集一次结构。KubeJS 能"在 server 阶段声明结构"是因为
-MMCR 有专门的延迟收集分支，NekoJS 没有。
-
-**能不能修**：需要 MMCR 上游放开（比如把那个 `isLoaded("kubejs")` 判断泛化）。
-如果你认识 MMCR 作者，可以提一下。
-
-### 26.1.2 少了 4 个端口族
-
-`stress` / `source` / `mana` / `air` 在 26.1.2 的 MMCR 里不存在。本附属会自动跳过并打 warn。
-
----
-
-## 想加功能？
-
-代码在 [`common/src/main/java/cn/howxu/mmcr/nekojs/`](https://github.com/YangShiDanny/NekoModularMachinery/tree/main/common/src/main/java/cn/howxu/mmcr/nekojs)。
-
-| 想加什么 | 改哪个文件 |
+| 内容 | 状态 |
 |---|---|
-| 新的 `api.xxx()` 门面方法 | `MMCRApiJS.java` |
-| 新的 builder 方法 | `builder/*.java`，然后接到 `DeclarationStore` |
-| 新的脚本事件 | `MMCRNekoEvents.java` + `event/*.java` |
-| 新的配方字段 | `recipe/MachineRecipeSchema.java` |
-| 版本差异处理 | `version/VersionSupport.java` + `versions/*/VersionSupportImpl.java` |
+| 机器定义（ServiceLoader） | ✅ |
+| 结构 / 等级 / 修饰符 | ✅ |
+| 数据配方（`mmcr:machine_recipe`） | ✅ |
+| JEI workstation | ✅ |
+| JEI 配方说明（client） | ✅ |
+| tick 行为 / 配方行为 | ✅ |
+| 控制屏文本 | ✅ |
 
-**注意双版本约束**：共享代码里**不能出现** `ResourceLocation` 或 `Identifier` 字面量，
-一律用 `var` 推断，或者走 `Ids.parse()`。这是两个 MC 版本能共用一份源码的关键。
+### 工程
 
-提交前跑一遍 CI（推 PR 就会自动编译两个版本）。
+- GitHub Actions：矩阵编译两个版本，产物校验（解包确认 `mods.toml` 与 ServiceLoader 文件），tag 不存在时自动发 Release
+- CI 里跑 `tomllib` 校验 `neoforge.mods.toml`（这个错误只在进游戏时才暴露，必须提前拦）
+- `wiki.yml` 把 `wiki/*.md` 同步到 GitHub Wiki
 
-### 别用自己写的 stub 验证
+## 已知限制
 
-这条是被坑出来的：早期用"手写的 NekoJS/MMCR 签名桩"做本地编译验证，结果桩是按自己的假设写的，
-编译通过了，CI 一跑全是真实 API 不匹配（`RecipeTypeDefinition` 的构造器参数个数、
-`EventBusJS` 需要 Graal 在 classpath 之类）。
+这些是设计取舍，不是 bug。
 
-正确做法是把**真实发布 jar** 放上 classpath 再 `javac`：
+### 1. 结构不能热重载
 
-```bash
-# 1. 从 CurseMaven / Modrinth Maven 下 jar
-#    https://cursemaven.com/curse/maven/nekojs-1518701/9048720/nekojs-1518701-9048720.jar
-#    https://cursemaven.com/curse/maven/graal-1504336/8762962/graal-1504336-8762962.jar
+KubeJS 版把结构放 `server_scripts` 能 `/reload`，本附属不行。原因是 MMCR 只为 KubeJS 实现了内容重载事务。
 
-# 2. 对着真实 jar 查签名，别信文档或记忆
-javap -cp nekojs.jar:graal.jar com.tkisor.nekojs.api.recipe.definition.RecipeTypeDefinition
+**影响**：改结构必须重启。
 
-# 3. 编译时 JDK 版本要够：26.1.2 的 jar 是 Java 25 字节码，JDK 21 连读都读不了
-javac -cp nekojs.jar:mmcr.jar:graal.jar <你的源码>
-```
+**变通**：用 `/mmcr build <机器ID>` 快速验证，比手动摆快。
 
-判断标准：**把某个依赖从 classpath 拿掉，应该能复现对应报错**。如果拿掉了照样 0 错误，
-说明验证器没在真正检查，结论不可信。
+### 2. 没有程序化配方 builder
 
+配方只能走数据 JSON（`ServerEvents.recipes`），不能像 KubeJS 那样用 builder 对象拼。
+
+原因：builder 需要真实 `Item` 对象，而 MMCR 的配方窗口在服务端脚本之前关闭，startup 阶段物品注册表又未就绪。
+
+**影响**：无。数据 JSON 反而**能** `/nekojs reload`，比程序化配方更好用。
+
+### 3. 联动模组的 requirement 类型只在 1.21.1 可用
+
+`botania:mana`、`ars_nouveau:source`、`pneumaticcraft:air`、`mekanism:*` 这些在 26.1.2 的 MMCR 里不存在。写了会被当成未知类型。
+
+### 4. 客户端渲染
+
+MMCR 的自定义 Render 是 Java API 独占的能力，KubeJS 版也拿不到，本附属同样不提供。
+
+## 可能的方向
+
+按价值排序，都不保证实现：
+
+1. **结构热重载** —— 需要 MMCR 侧开放一个 NekoJS 也能用的内容重载钩子。依赖上游。
+2. **程序化配方** —— 需要延迟到 `ModifyDefaultComponentsEvent` 再解析 Item。技术上可行，但收益低于数据 JSON。
+3. **TypeScript 类型声明** —— NekoJS 已经会生成 `.neko_probe/*.d.ts`，给 `MMCR` / `MMCREvents` 补上 JSDoc，让补全带注释。
+4. **更多示例** —— 把 MMCR 官方 wiki 的 11 个示例机器全部翻译。
+
+## 参与
+
+- 仓库：<https://github.com/YangShiDanny/NekoModularMachinery>
+- 提交前跑一遍 CI（推 PR 会自动编译两个版本）
+- 共享代码里**不能出现** `ResourceLocation` 或 `Identifier` 字面量，一律用 `var` 推断或走 `Ids.parse()`。这是两个版本共用一份源码的关键。

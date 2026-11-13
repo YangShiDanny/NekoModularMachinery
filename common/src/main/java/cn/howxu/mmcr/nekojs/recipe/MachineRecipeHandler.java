@@ -12,8 +12,10 @@ import java.util.Map;
  * server scripts.
  *
  * <p>Recipes produced here are plain {@code mmcr:machine_recipe} JSON, handed back to NekoJS's
- * recipe pipeline. MMCR reads that directory itself, so these survive {@code /nekojs reload} —
- * unlike the startup-only {@link cn.howxu.mmcr.nekojs.builder.RecipeBuilderJS}.
+ * recipe pipeline, so they survive {@code /nekojs reload}. This is the only supported way to add
+ * recipes from this bridge: a programmatic builder would have to resolve {@code Item} objects
+ * while MMCR's recipe window is open, and NekoJS STARTUP scripts run before the item registry is
+ * populated.
  *
  * <p>The wrapper deliberately does not depend on the {@code RecipeEventJS} type: NekoJS has one
  * shape per script generation, so the factory in

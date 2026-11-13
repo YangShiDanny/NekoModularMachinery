@@ -215,8 +215,8 @@ MMCREvents.startup(event => {
 
   // 2. 结构（也在 startup）
   event.createStructure('my_pack:blast_furnace')
-    .pattern(['BBB','BPB','BBB'])
-    .pattern(['BBB','PFP','BBB'])
+    .pattern('BBB', 'BPB', 'BBB')
+    .pattern('BBB', 'PFP', 'BBB')
     .set('B', api.block('my_pack:machine_casing'))
     .set('P', api.itemInput())
     .set('F', api.fluidInput())
@@ -232,7 +232,7 @@ ServerEvents.recipes(event => {
 })
 ```
 
-完整对照见 `docs/API.md`，可运行示例见 `examples/`。
+完整对照见 `docs/API.md`，可运行示例见 `examples/`，完整文档见 [`wiki/`](wiki/Home.md)。
 
 ## 7. 已知限制（务必阅读）
 
@@ -249,16 +249,19 @@ ServerEvents.recipes(event => {
    MMCR 只对 **KubeJS** 延迟结构收集
    （`StartupContentRegistration.completeProductionForModStartup` 里写死了
    `ModList.get().isLoaded("kubejs") && !Plugin.startupScriptsLoaded()`），
-   对本附属没有这种照顾。因此 `MMCREvents.server` 只保留给数据驱动的配方语义，
-   在里面调 `createStructure` / `createLevel` 不会生效。
+   对本附属没有这种照顾。因此 `ServerEventJS` **只暴露 `getAPI()`**——不提供
+   `createStructure` / `createLevel` / `createRecipe`，让错误在写脚本时就暴露，
+   而不是运行时静默丢弃。
 
    好消息是 NekoJS 的 `STARTUP` 脚本在 mod 构造函数里同步执行，**早于** MMCR 的
    `FMLConstructModEvent`，所以 `startup_scripts` 声明的机器定义走 ServiceLoader 是 100% 可靠的。
 
-2. **程序化配方（`event.createRecipe`）也只能在 `startup_scripts`。**
-   MMCR 的静态配方在 `ModifyDefaultComponentsEvent` 一次性收集。写在 `server_scripts` 里会被
-   忽略并在日志中给出警告。日常用 `event.custom({type:'mmcr:machine_recipe', ...})` 或
-   `event.recipes.mmcr.machine_recipe(...)`，这些走 MMCR 自己的配方目录，`/nekojs reload` 可重载。
+2. **没有程序化配方 builder。** `RecipeDraft` 只接受真实的 `Item` / `Ingredient` 对象，
+   而 MMCR 的配方窗口（`ModifyDefaultComponentsEvent`）在服务端脚本加载之前就关了，
+   STARTUP 阶段物品注册表又还没填充完——两头都接不上。
+   配方统一走 `mmcr:machine_recipe` 数据 JSON（`event.recipes.mmcr.machine_recipe(...)`
+   或 `event.custom({...})`），它是标准配方类型，走 `RecipeManager`，
+   反而**能** `/nekojs reload` 热重载。
 
 3. **两个 MC 版本的端口族不一样。** 1.21.1 有 10 族（含 Create 应力、Ars 源、Botania 魔力、
    PneumaticCraft 空气）；26.1.2 只剩 6 族（物品/流体/能量/化学品/放射性化学品/热）。
@@ -273,9 +276,10 @@ ServerEvents.recipes(event => {
    智能接口运行时值、Mekanism 化学品快捷工厂、`SmartInterfaces` 类型注册、
    控制器渲染器扩展。这些都可通过在 `common/` 加 Java 方法或直接手写 JSON 补齐。
 
-6. **构建验证状态。** `common/` + 两个版本的 `version/` 已用 JDK 21 做过真实 `javac` 编译
-   （MMCR / NeoForge 侧用与真实签名一致的最小 stub 替代），**1.21.1 与 26.1.2 均 0 错误**。
-   Gradle 打包链路（ModDevGradle + CurseMaven + Modrinth）尚未在本机跑通，首次 CI 通过后即视为验证完成。
+6. **构建验证状态。** `common/` + 两个版本的 `version/` 已用**真实发布 jar**
+   （NekoJS `1.1.0-preview3`、MMCR `0.1.7`、GraalMC `25.1.3.7`）做 `javac` 编译，
+   **1.21.1 与 26.1.2 均 0 错误**。26.1.2 的 jar 是 Java 25 字节码，必须用 JDK 25 编译。
+   Gradle 打包链路（ModDevGradle + CurseMaven + Modrinth）由 CI 验证。
 
 7. `neoforge.mods.toml` 的版本范围是保守值，按你实际使用的 NeoForge / MMCR 版本调整。
 

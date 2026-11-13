@@ -1,147 +1,185 @@
-# 常见错误
+# 排错
 
-按症状查。先看日志——`logs/latest.log` 里搜 `mmcr_nekojs`。
+按「症状 → 原因 → 处理」组织。先确认一件事：**本附属的日志前缀是 `mmcr_nekojs`**，搜这个就能过滤出相关问题。
 
----
+## 游戏起不来
 
-## 启动后日志里没有 `MMCR/NekoJS submitted ...`
+### `File mods/mmcr_nekojs-xxx.jar is not a valid mod file`
 
-说明脚本根本没执行到。
+`neoforge.mods.toml` 语法错误。最常见的是把两个键值对写在一行：
 
-| 检查项 | 怎么查 |
+```toml
+# 错
+modId="neoforge" type="required" versionRange="[21.1.238,)"
+```
+
+TOML 规定一个 key 只能独占一行。从 v0.1.1 起 CI 会先跑一遍 `tomllib` 校验，理论上不会再有这个问题；如果自己改过 toml，检查这一条。
+
+### `Missing or unsupported mandatory dependencies`
+
+缺依赖，或者版本不满足。本附属要求：
+
+| 依赖 | 最低版本 |
 |---|---|
-| NekoJS 装了吗 | 日志里搜 `nekojs`；`nekojs/` 目录存在吗 |
-| 脚本放对目录了吗 | 必须 `nekojs/startup_scripts/`（注意是 `nekojs` 不是 `kubejs`） |
-| 脚本有语法错误吗 | NekoJS 会在日志里报解析错误，搜 `SyntaxError` / `error` |
-| 真的声明了东西吗 | 空文件当然什么都不提交 |
-| 是不是用了 `MMCREvents.server` | 那不会产生这两行 |
+| `neoforge` | 21.1.238（1.21.1） / 26.1.2.99（26.1.2） |
+| `nekojs` | 1.1.0 |
+| `mmcr` | 0.1.7 |
 
-**两个 jar 都装了吗**：MMCR、NekoJS、本附属，缺一个都不会注册。
+装错 MC 版本的 jar（把 `-26.1.2-` 装到 1.21.1 上）也报这个。
 
----
+### 崩溃提到 `graal.graalvm.polyglot`
 
-## 机器不出现在 JEI / 拿不到控制器
+缺 **GraalMC**。NekoJS 把 Graal 排除在自己的 jar 外，必须单独装 `graalmc-neoforge-25.1.3.7.jar`。
 
-| 原因 | 解决 |
-|---|---|
-| 没调 `.register()` | 每个 builder 最后都要 `register()`（结构是 `build()`） |
-| `displayNameKey` 没配语言条目 | 显示成原始 key，搜不到。加 `assets/<ns>/lang/zh_cn.json` |
-| `addRecipePoolWorkstation` 没写 | JEI 不知道哪个物品代表这个机器 |
-| 机器 ID 和配方池 ID 搞混 | 它们是两个东西，池默认等于机器 ID，但可以不同 |
+### 启动后没有 `nekojs/` 目录
 
----
+NekoJS 本身没加载成功。先单独排查 NekoJS，本附属无从谈起。
 
-## 结构永远拼不上
+## 脚本没生效
 
-**先检查字符串长度。** 这是最常见的原因。
+### 日志里 `startup declarations: 0 machine(s)`
+
+机器一个都没注册上。按顺序查：
+
+1. 文件在 `nekojs/startup_scripts/` 里吗？（不是 `kubejs/`）
+2. 包在 `MMCREvents.startup(event => { ... })` 里吗？
+3. 调了 `.register()` 吗？
+4. `/nekojs error` 有报错吗？
+
+第四步最直接——脚本抛异常会被 NekoJS 捕获，不崩游戏，但整个脚本会被标记为 disabled。
+
+### `/nekojs error` 没输出，但也没生效
+
+可能脚本被 `disable` 属性关掉了：
 
 ```js
-.pattern(
-  'BBB',
-  'BCB',
-  'BB'      // ← 少一个字符，整个结构错位
-)
+// disable: true
 ```
 
-同一次 `pattern()` 里所有字符串长度必须一致。
-
-其他可能：
-
-| 原因 | 解决 |
-|---|---|
-| `pattern()` 调用次数理解错了 | 一次调用 = 一个 z 层（水平层），不是一回事 |
-| 控制器符号没定义 | `.controller('C')` 但 `set('C', ...)` 没写 |
-| 空格被当成"要求空气" | 空格是"跳过不检查"，要空气用 `api.air()` |
-| 方块状态不对 | 熔炉 `[lit=true]` 和 `[lit=false]` 不同，用 `stateInsensitive()` |
-| 写在了 `server_scripts` | 挪到 `startup_scripts`，重启 |
-
-**调试技巧**：先用最小结构（3×1×3 地板，全用一种方块）验证能不能成型，再加复杂度。
-
----
-
-## 成型失败，提示缺端口
-
-`portRequirements` 是**校验**，不是"自动生成端口"。
+或者 `modloaded` 条件不满足：
 
 ```js
-.portRequirements({ item_input_bus: 1 })   // 意思是"成型时必须至少有 1 个"
+// modloaded: create, jei
 ```
 
-解决：在结构表面手动装对应端口方块，或者放宽/删掉这条要求。
+属性必须写在**文件开头的注释块**里，中间不能夹代码或块注释。
 
----
+### 改了结构，`/nekojs reload` 没变化
 
-## 配方不出现，但也不报错
+预期行为。结构在启动期冻结，**必须重启游戏**。见 [生命周期](Getting-Started)。
 
-MMCR 对坏配方是**静默丢弃**的。
+### `MMCREvents.server` 里注册结构/配方，静默无效
 
-| 原因 | 排查 |
-|---|---|
-| 流体输入写成裸字符串 | `fluid:'minecraft:water'` ❌ → `fluid:{fluid:'minecraft:water'}` ✅ |
-| `recipe_pool` 拼错 | 和机器的 `recipePool()` 逐字符对 |
-| 用了旧字段名 | `machine` / `inputs` / `fluid_outputs` 都已被拒绝，换成 `recipe_pool` / `requirements` |
-| `tick_time` 是 0 或负数 | 必须 ≥ 1 |
-| 写进了 `startup_scripts` | `ServerEvents.recipes` 在 startup 阶段不触发 |
+也是预期行为。`ServerEventJS` **只有 `getAPI()`**，没有 `createStructure` / `createRecipe`——就是为了让你在写的时候直接报错，而不是运行时静默丢弃。
 
-**调试技巧**：先用原生 JSON（写法 B）跑通一条，确认池名对了，再改成 schema。
+结构 → `startup_scripts`；配方 → `ServerEvents.recipes`。
 
----
+## 机器/结构问题
 
-## 游戏崩溃 / `NoClassDefFoundError`
+### 控制器放下去，右键成型失败
 
-| 现象 | 原因 |
-|---|---|
-| `cn.howxu.mmcr.publicapi...` 找不到 | MMCR 没装，或版本低于 0.1.7 |
-| `com.tkisor.nekojs...` 找不到 | NekoJS 没装 |
-| `net.minecraft.resources.Identifier` / `ResourceLocation` 找不到 | jar 和 MC 版本不匹配 |
-| 两个脚本引擎打架 | 卸掉 KubeJS / Rhino / NekuJS |
+按可能性排序：
 
-**版本一定要对上**：
+1. **方块不匹配**。`api.block(...)` 只校验方块种类，`api.state(...)` 还校验状态。原木、楼梯这类请确认状态。
+2. **结构其实没建成你以为的形状**。`pattern()` 是 z 层不是 y 层，第一个字符串是最底层。见 [结构](Structures)。
+3. **行宽不一致**。写了 3 个字符的行里混进 4 个字符，整个结构错位，**不报错**。
+4. **`portRequirements` 不满足**。这个是真校验，数量不够就成不了型。
+5. **控制器符号出现了多次**。`.controller('C')` 的 `C` 应该只出现一次。
 
+用 `/mmcr build <机器ID>` 让 MMCR 自己建一遍，比手动摆快得多，也能快速看出形状对不对。
+
+### 成型了但没有接口
+
+结构里所有能接管道的位置都被 `api.block(...)` 绑死了。给预留位加 `api.anyOf(...)`：
+
+```js
+.set('H', api.anyOf(
+  api.block('minecraft:iron_block'),
+  api.itemInput(), api.itemOutput(), api.energyInput()
+))
 ```
-MC 1.21.1  →  mmcr_nekojs-1.21.1-*.jar  →  Java 21
-MC 26.1.2  →  mmcr_nekojs-26.1.2-*.jar  →  Java 25
+
+只加 `api.block(...)` 的话，那个位置永远只认一种方块。
+
+### 等级槽成型失败
+
+那个位置放的方块，没有任何 `MachineLevel` 的 `state` 匹配。检查：
+
+- `event.createLevel(...).state('minecraft:gold_block')` 里的方块 ID 对不对
+- 结构里用的是 `event.levelSlot('my_mod:coil')`，而 `coil` 这个**等级类型**注册过
+
+## 配方问题
+
+### JEI 里有配方，机器不跑
+
+1. 接口位置没有 `itemInput()` / `energyInput()` 条件 → 材料进不去
+2. 没通电
+3. 配方需要等级，但机器没装
+4. `recipe_pool` 写成了机器 ID，而机器绑的池是另一个名字
+
+### 配方在 JEI 里根本不出现
+
+1. 配方脚本报错 → `/nekojs error`
+2. `recipe_pool` 字段拼错（是 `recipe_pool` 不是 `machine`）
+3. 物品输出写成了输入格式：
+
+```js
+// 错：输出用了 item
+const wrong = { type: 'minecraft:item', io: 'output', item: 'minecraft:iron_ingot', count: 1 }
+// 对：输出用 stack
+const right = { type: 'minecraft:item', io: 'output', stack: { id: 'minecraft:iron_ingot', count: 1 } }
 ```
 
-装错版本 `mods.toml` 会拒绝加载，日志里写得很清楚。
+4. `type` 不是 `mmcr:machine_recipe`
 
----
+### 改了配方没生效
 
-## 修饰符装了没反应
+- 配方在 `server_scripts` → `/nekojs reload`
+- 配方在数据包里 → `/reload`
 
-| 检查 | 说明 |
+两者不一样，别搞混。
+
+### `parallelized: true` 但还是单份跑
+
+机器的三个条件缺一不可：
+
+```js
+.allowParallelism()
+.maxParallelAmount(8)     // 不写默认 1
+```
+
+加上配方里的 `parallelized: true`。
+
+## 修饰符/等级没效果
+
+| 症状 | 检查 |
 |---|---|
-| 机器有 `.allowModifiers()` 吗 | 没有这个开关，修饰符槽不工作 |
-| 结构那格是 `modifierSlot(...)` 吗 | 普通方块格装不了 |
-| `registerModifierItem` 的两个参数都是字符串吗 | 传 `Item.of()` 会失效 |
-| `modifier()` 的 target/scope 合法吗 | 布尔修饰符只支持 `('parallelized','recipe',bool)` |
+| 插了芯片没反应 | 机器有没有 `.allowModifiers()`；`registerModifierItem(itemId, modifierId)` 的 modifier ID 拼对没 |
+| 等级换了没变化 | 那个等级有没有挂 `modifier(...)`；或者配方没写 `mmcr:level` 需求 |
+| 修饰符生效但方向反 | `multiply` 0.5 = 变快/变少，1.5 = 变慢/变多 |
+| target 名写了没效果 | `'duration'` / `'energy'` / `'item'` / `'fluid'` 这几个是内置的；其他名字不会生效也不会报错 |
 
----
+## 性能
 
-## `tickBehavior` / `recipeBehavior` 报类型错误
+### 服务器卡
 
-这两个钩子需要 NekoJS 把 JS 函数转成 Java `Consumer`。如果你的 NekoJS 版本不支持
-宿主 `@FunctionalInterface` 桥接，会在这里抛类型错误。
+`tickBehavior` 里的 `serverTick` 每 tick 每个机器都跑一次。两件事：
 
-临时方案：去掉钩子，改用配方层面的机制；或者自己写 Java 扩展。
+1. 用 `ctx.isDue(n)` 降低频率，别每 tick 都干活
+2. 回调里不要做区块扫描、不要遍历大列表
 
----
+`recipeTick` 同理——它每 tick 每条运行中的配方都会调用。
 
-## `/nekojs reload` 后结构没更新
+## 收集信息
 
-**正常现象。** 结构是启动期注册的，改不了。
+报 issue 前请附上：
 
-只有 `server_scripts` 里的**数据驱动配方**支持热重载。机器、结构、等级、修饰符都需要重启。
-
----
+1. `logs/latest.log` 里搜 `mmcr_nekojs` 的部分
+2. `/nekojs error` 的输出
+3. 出问题的脚本文件
+4. MMCR / NekoJS / 本附属 三者的**确切版本号**（不是文件名，是 `mods.toml` 里的版本）
 
 ## 还是不行
 
-开 issue 时带上这些信息，能省很多来回：
-
-1. Minecraft / NeoForge / MMCR / NekoJS 版本
-2. 完整的 `logs/latest.log`（或者至少 grep `mmcr_nekojs` 的部分）
-3. 你的脚本文件
-4. 有没有装 KubeJS / Rhino
-
-[开 issue](https://github.com/YangShiDanny/NekoModularMachinery/issues)
+- [从 KubeJS 迁移](KubeJS-Migration) —— 如果你是照着 KubeJS 示例写的，八成是目录或方法名没改
+- [全部示例](Examples) —— 对照一个已知能跑的完整脚本
