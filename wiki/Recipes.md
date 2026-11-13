@@ -114,10 +114,28 @@ const requirements = [
 
 把它们放进配方：
 
+> **别直接把上面这种嵌套字面量塞进 `machine_recipe(...)`。**
+> NekoJS 在把 JS 参数交给 schema 时会扫描对象字面量的键，**嵌套层也算**，
+> 于是 `stack: { id: ... }` 里的 `id` 会被当成 schema 字段名，报一条只有字段名的错
+> （日志里是 `原因: id`，位置指向数组那一行）。这不是 MMCR 的错，也不是配置写错了。
+>
+> 两种可行写法：
+>
+> 1. **用 helper 拼 requirement**（返回 Java Map，不经过字面量扫描，推荐）：
+>    `const api = MMCR.getAPI()`，然后 `api.itemInputRequirement(id, count)`、
+>    `api.itemOutputRequirement(id, count, chance)`、`api.fluidInputRequirement(...)`、
+>    `api.energyRequirement(io, fePerTick)`。
+> 2. **走 `event.custom`**，把整份 JSON 一次交出去（见本章开头），字面量在 `custom` 里不会被 schema 扫描。
+
 ```js
+const api = MMCR.getAPI()
+
 ServerEvents.recipes(event => {
-  event.recipes.mmcr.machine_recipe('my_mod:smelter', 200, requirements)
-    .id('my_mod:smelter_iron')
+  event.recipes.mmcr.machine_recipe('my_mod:smelter', 200, [
+    api.itemInputRequirement('minecraft:iron_ore', 1),
+    api.itemOutputRequirement('minecraft:iron_ingot', 1, 1.0),
+    api.energyRequirement('input', 10)
+  ]).id('my_mod:smelter_iron')
 })
 ```
 

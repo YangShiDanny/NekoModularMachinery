@@ -31,6 +31,16 @@ MMCR 官方 wiki 的「全部示例」是按机器逐页给的 KubeJS 脚本。�
 
 > 第 4、5 条是方法名差异：MMCR 的 `KubeJSApi` 用 `anyOfXxx` 前缀，本附属的 `MMCRApiJS` 用裸名。功能完全一样。
 
+> ⚠️ **本页的 requirement 字面量需要改写后再用。** 下面示例为了贴近官方 KubeJS 写法，`requirements` 里直接写了
+> `{ type:'minecraft:item', io:'output', stack:{ id:... } }` 这类嵌套对象字面量。NekoJS 在把这些参数交给 recipe
+> schema 时会扫描字面量的键（**嵌套层也算**），`stack` 里的 `id` 会被当成 schema 字段名，报一条只有字段名的错
+> （日志：`原因: id`）。实际使用时请二选一：
+>
+> - 用 helper 拼：`api.itemInputRequirement('minecraft:iron_ore', 1)`、`api.itemOutputRequirement('minecraft:iron_ingot', 1, 1.0)`、`api.energyRequirement('input', 20)`；
+> - 或把整份 JSON 交给 `event.custom({...})`，字面量在那里不会被扫描。
+>
+> 细节见 [配方](Recipes) 的「requirement 类型」一节。
+
 `event.createMachine` / `createStructure` / `.pattern` / `.set` / `.controller` / `.register` / `.build` 全部**同名同义**，不用改。
 
 ---

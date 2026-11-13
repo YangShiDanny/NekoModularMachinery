@@ -75,6 +75,51 @@ net.neoforged.fml.ModLoadingException: Loading errors encountered:
 
 机器 id 必须和结构 id **完全一致**（`createMachine('a:b')` ↔ `createStructure('a:b')`），大小写、命名空间都算。
 
+### 配方脚本报 `原因: id`（或别的字段名）
+
+```
+位置: server_scripts/src/x.js:12:3
+原因: id
+```
+
+整段没有 Java 堆栈，位置指向 `requirements` 数组里某个对象字面量。原因不在 MMCR：NekoJS 把 JS 参数交给 recipe schema
+时会扫描对象字面量的键（**包括嵌套层**），`stack: { id: ... }` 里的 `id` 被当成 schema 字段名，于是报出这个字段名。
+
+改用返回 Java Map 的 helper，或干脆走 `event.custom`：
+
+```js
+const api = MMCR.getAPI()
+event.recipes.mmcr.machine_recipe('mmcr_test:smelter', 100, [
+  api.itemInputRequirement('minecraft:iron_ore', 1),
+  api.itemOutputRequirement('minecraft:iron_ingot', 1, 1.0),
+  api.energyRequirement('input', 10)
+]).id('mmcr_test:smelter_iron')
+```
+
+修完执行 `/nekojs reload`，看 `logs/nekojs/server.log` 有没有 `配方已提交`。
+
+### 进世界/开 JEI 时崩：`InjectionError ... mmcr$replaceRecipeBackground`
+
+```
+org.spongepowered.asm.mixin.injection.throwables.InjectionError: Critical injection failure:
+Variable modifier method mmcr$replaceRecipeBackground(...) in
+mixins/extras/mmcr.jei.mixins.json:JeiRecipeManagerMixin from mod mmcr failed injection check,
+(0/1) succeeded. Scanned 0 target(s). No refMap loaded.
+```
+
+**和本附属无关，是 MMCR 自己的 JEI 兼容层版本不匹配。** `mmcr-neoforge-mc26.1.2-0.1.7` 是对着
+**JEI 29.47.0.110** 编译的（MMCR 源码 `gradle.properties: jei_version=29.47.0.110`），
+换更新的 JEI（例如 29.53.x）后 `mezz.jei.library.recipes.RecipeManager` 里被注入的方法已经不在了，
+注入检查失败直接崩客户端。
+
+处理办法，任选其一：
+
+1. **JEI 降到 29.47.0.110**（推荐，已验证进标题画面正常）。
+2. 不装 JEI。机器、结构、配方都不依赖 JEI，只是没有 JEI 页面。
+3. 等 MMCR 更新 JEI 兼容层。
+
+本附属**没有** mixin，不会造成这类崩溃。
+
 ### `/nekojs error` 没输出，但也没生效
 
 可能脚本被 `disable` 属性关掉了：
