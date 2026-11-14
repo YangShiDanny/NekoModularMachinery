@@ -3,7 +3,6 @@
   "machine.my_pack.simple_furnace": "示例熔炉",
   "machine.my_pack.big_furnace": "示例大熔炉",
   "machine.my_pack.heated_furnace": "示例加热炉",
-  "level.my_pack.coil": "线圈等级",
   "level.my_pack.heat": "热量等级",
   "block.my_pack.machine_casing": "机器外壳",
   "block.my_pack.blast_furnace_controller": "示例高炉控制器",

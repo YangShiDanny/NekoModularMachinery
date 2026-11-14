@@ -11,15 +11,28 @@
 //   - 每个字符串里，第 1 个字符是 x 最小
 //   - 空格 ' ' 表示"这一格不检查"，要强制空气请用 api.air() 显式声明
 //
-// 两条硬规矩：
+// 三条硬规矩：
 //   1. 链式调用中间不放 // 注释（NekoJS 静态预检解析器只跳空白不跳注释，会把链断成两句）
 //   2. 控制器符号不要再 set() 绑方块——MMCR 自己往那一格放控制器方块；
 //      多绑一次会让结构永远成型失败（0.1.5 起这种绑定会被忽略并打一行 warn）
+//   3. 等级类型和等级要在用到 levelSlot 的结构之前声明——结构里的等级槽谓词是按
+//      已声明的等级生成的
 //
 // 这里的四个结构 id 和 01_blocks_and_machine.js 里的机器一一对应。
 
 MMCREvents.startup(event => {
     const api = event.getAPI()
+
+    // ---- 等级：类型 + 一个具体等级 ----
+    event.createLevelType('my_pack:heat')
+        .displayNameKey('level.my_pack.heat')
+        .register()
+
+    event.createLevel('my_pack:heat_lv1')
+        .type('my_pack:heat')
+        .state('minecraft:furnace[lit=true]')
+        .priority(0)
+        .register()
 
     // ---- 例子 1：3×3 竖直墙面，最小可成型结构 ----
     // 只有外壳 + 控制器，没有端口：能成型，但接不了东西。
@@ -54,7 +67,7 @@ MMCREvents.startup(event => {
             'BBBBB',
             'BBBBB'
         )
-        .set('B', api.block('my_pack:machine_casing'))
+        .set('B', api.block('minecraft:iron_block'))
         .set('E', api.energyInput())
         .set('F', api.fluidInput())
         .set('I', api.itemInput())
@@ -103,16 +116,8 @@ MMCREvents.startup(event => {
         .build()
 
     // ---- 例子 4：带等级槽的结构 ----
-    // 'L' 那几格放什么由机器当前等级决定，见 createLevel 的 state()
-    event.createLevelType('my_pack:heat').displayNameKey('level.my_pack.heat').register()
-
-    event.createLevel('my_pack:heat_lv1')
-        .type('my_pack:heat')
-        .state('minecraft:furnace[lit=true]')
-        .priority(0)
-        .register()
-
-    // 3×3 单层：四个 L 是等级槽，C 是控制器
+    // 'L' 那几格放什么由机器当前等级决定（上面声明的 my_pack:heat），
+    // 这里摆 my_pack:heat_lv1 要求的 minecraft:furnace[lit=true]。
     event.createStructure('my_pack:heated_furnace')
         .pattern(
             'SLS',

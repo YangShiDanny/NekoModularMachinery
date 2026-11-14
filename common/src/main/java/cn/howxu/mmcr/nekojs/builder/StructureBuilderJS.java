@@ -7,6 +7,8 @@ import cn.howxu.mmcr.nekojs.bridge.DeclarationStore;
 import cn.howxu.mmcr.nekojs.version.Ids;
 import cn.howxu.mmcr.nekojs.version.VersionSupport;
 import cn.howxu.mmcr.publicapi.Structures;
+import cn.howxu.mmcr.publicapi.structure.BlockCondition;
+import cn.howxu.mmcr.publicapi.structure.BlockConditions;
 import cn.howxu.mmcr.publicapi.structure.PortTierLimits;
 
 import java.util.*;
@@ -105,12 +107,23 @@ public final class StructureBuilderJS {
             else if (value instanceof Refs.ModifierUseRef ref) modifierUses.put(symbol, ref);
         });
 
+        // A level/modifier slot is validated through stage.requirements, but MMCR still demands a
+        // predicate for every symbol that shows up in the pattern (PatternDefinition throws
+        // "Unbound pattern symbol" otherwise) - MMCR's own builtin structures bind those cells to
+        // an anyOf(...) of the level blocks. Do the same, derived from the levels declared so far.
         // fullStructure already selects the FULL stage: never call stage.full() here.
         var spec = draft.fullStructure(stage -> {
             stage.pattern(pattern -> {
                 for (String[] slice : slices) pattern.layer(slice);
                 symbols.forEach((symbol, value) -> {
-                    if (value instanceof Refs.LevelSlotRef || value instanceof Refs.ModifierUseRef) return;
+                    if (value instanceof Refs.LevelSlotRef ref) {
+                        pattern.where(symbol, levelSlotPredicate(ref.typeId));
+                        return;
+                    }
+                    if (value instanceof Refs.ModifierUseRef ref) {
+                        pattern.where(symbol, modifierSlotPredicate(ref));
+                        return;
+                    }
                     pattern.where(symbol, MMCRApiJS.toCondition(value));
                 });
                 pattern.controller(controllerSymbol);
@@ -147,6 +160,38 @@ public final class StructureBuilderJS {
         }).build(Ids.parse(id));
 
         DeclarationStore.putStructure(id, spec);
+    }
+
+    /**
+     * Pattern predicate for a level slot: the union of every declared level of that type. MMCR
+     * picks the concrete level from the block found in the cell, so the pattern only has to accept
+     * the candidates. Levels declared *after* this structure are not covered - hence the explicit
+     * error instead of silently producing a structure nothing can match.
+     */
+    private BlockCondition levelSlotPredicate(String typeId) {
+        var type = Ids.parse(typeId);
+        List<BlockCondition> states = new ArrayList<>();
+        DeclarationStore.levels().values().stream()
+                .filter(spec -> type.equals(spec.typeId()))
+                .forEach(spec -> states.add(spec.statePredicate()));
+        if (states.isEmpty()) {
+            throw new IllegalArgumentException("MMCR structure " + id + " has a level slot of type '"
+                    + typeId + "' but no level of that type was declared yet. Call event.createLevel(...)"
+                    + " for that type before this structure, or bind the cell with set(symbol, ...).");
+        }
+        return BlockConditions.any(states.toArray(new BlockCondition[0]));
+    }
+
+    /**
+     * A modifier slot needs a block to place, because the pattern has to know what may sit in that
+     * cell. {@code event.modifierSlot(id, block)} supplies it; without one there is nothing sensible
+     * to accept, so fail loudly instead of leaving the symbol unbound.
+     */
+    private BlockCondition modifierSlotPredicate(Refs.ModifierUseRef ref) {
+        if (ref.replacement != null) return ref.replacement;
+        throw new IllegalArgumentException("MMCR structure " + id + " has modifier slot '"
+                + ref.modifierId + "' without a placement block. Use event.modifierSlot('"
+                + ref.modifierId + "', api.block('...')).");
     }
 
     private static int asInt(Object container, int index) {
