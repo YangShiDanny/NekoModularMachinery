@@ -211,7 +211,7 @@ MMCREvents.startup(event => {
 ```js
 ServerEvents.recipes(event => {
   event.recipes.mmcr.machine_recipe('my_mod:distillery', 400, [
-    { type: 'minecraft:fluid', io: 'input',  fluid: { fluid: 'my_mod:crude_oil' }, amount: 1000 },
+    { type: 'minecraft:fluid', io: 'input',  fluid: 'my_mod:crude_oil', amount: 1000 },
     { type: 'minecraft:fluid', io: 'output', stack: { id: 'my_mod:diesel', amount: 600 } },
     { type: 'minecraft:fluid', io: 'output', stack: { id: 'my_mod:heavy_residue', amount: 200 } },
     { type: 'neoforge:energy', io: 'input', fe_per_tick: 80 }
@@ -266,7 +266,7 @@ ServerEvents.recipes(event => {
     parallelized: true,
     max_threads: 8,
     requirements: [
-      { type: 'minecraft:fluid', io: 'input', fluid: { fluid: 'my_mod:heavy_residue' }, amount: 500 },
+      { type: 'minecraft:fluid', io: 'input', fluid: 'my_mod:heavy_residue', amount: 500 },
       { type: 'minecraft:item', io: 'output', stack: { id: 'my_mod:coke', count: 2 } }
     ]
   }).id('my_mod:crack_residue')

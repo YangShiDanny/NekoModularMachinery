@@ -87,15 +87,17 @@ ServerEvents.recipes(event => {
 const requirements = [
   // 物品输入：item + count
   { type: 'minecraft:item', io: 'input', item: 'minecraft:iron_ore', count: 1 },
-  // 物品输入（标签）：tag + count
-  { type: 'minecraft:item', io: 'input', tag: 'forge:ores/iron', count: 1 },
+  // 物品输入（标签）：仍然是 item 字段，值是 ingredient 的 tag 形态
+  { type: 'minecraft:item', io: 'input', item: { tag: 'c:ores/iron' }, count: 1 },
   // 物品输出：必须用 stack，别写成输入的 item 格式
   { type: 'minecraft:item', io: 'output', stack: { id: 'minecraft:iron_ingot', count: 1 } },
   // 物品输出 + 概率
   { type: 'minecraft:item', io: 'output', stack: { id: 'minecraft:gold_nugget', count: 1 }, chance: 0.25 },
 
   // 流体：amount 单位 mB，一桶 = 1000
-  { type: 'minecraft:fluid', io: 'input',  fluid: { fluid: 'minecraft:water' }, amount: 1000 },
+  // fluid 是流体 id 字符串本身（NeoForge 的 FluidIngredient 简单形式就是裸 id），
+  // 不要写成 { fluid: ... } 这种嵌套对象——它解不出来
+  { type: 'minecraft:fluid', io: 'input',  fluid: 'minecraft:water', amount: 1000 },
   { type: 'minecraft:fluid', io: 'output', stack: { id: 'minecraft:lava', amount: 500 } },
 
   // 能量：fe_per_tick 是功率，不是总量
@@ -111,6 +113,12 @@ const requirements = [
 ```
 
 把它们放进配方：
+
+> **字段语义（照 MMCR 的 codec，不看它会踩坑）**：
+> - `item` / `fluid` 的值是 **ingredient**：裸 id 字符串（`'minecraft:iron_ore'`）或 tag 形态（`{ tag: 'c:ores/iron' }`）。
+>   写成 `item: { item: '...' }`、`fluid: { fluid: '...' }` 这类嵌套对象解不出来。
+> - `stack` **只用于输出**（`stack: { id, count }` / `stack: { id, amount }`），输入别用。
+> - `count` / `amount` 是数字，`fe_per_tick` 是功率（不是总量）。
 
 > **`requirements` 里的对象字面量本身没问题**（MMCR 的 `RECIPE_ITEM_STACK_CODEC` 就是 `stack: { id, count }`），
 > 但这要求 **0.1.4 及以后**：0.1.3 里 `machine_recipe(...)` 返回的是裸 Gson `JsonObject`，链 `.id()` 会报

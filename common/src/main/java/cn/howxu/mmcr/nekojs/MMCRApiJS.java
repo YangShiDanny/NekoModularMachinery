@@ -120,8 +120,10 @@ public final class MMCRApiJS {
         return ConstantValues.req("minecraft:item", "output", "stack", stack, "chance", chance);
     }
     public Map<String, Object> fluidInputRequirement(String fluidId, long amount) {
-        Map<String, Object> fluid = new LinkedHashMap<>(); fluid.put("fluid", fluidId);
-        return ConstantValues.req("minecraft:fluid", "input", "fluid", fluid, "amount", amount);
+        // MMCR parses this field with NeoForge's FluidIngredient codec, whose simple form is the
+        // plain fluid id (HolderSetCodec accepts a bare id string); a nested {"fluid": id} object
+        // is not a shape it understands.
+        return ConstantValues.req("minecraft:fluid", "input", "fluid", fluidId, "amount", amount);
     }
     public Map<String, Object> fluidOutputRequirement(String fluidId, long amount, double chance) {
         Map<String, Object> stack = new LinkedHashMap<>();

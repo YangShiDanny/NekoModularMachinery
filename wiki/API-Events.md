@@ -182,7 +182,7 @@ event.registerModifier('my_mod:overclock', bundle)
 |---|---|
 | `api.itemInputRequirement(itemId, count)` | `{type:'minecraft:item', io:'input', item, count}` |
 | `api.itemOutputRequirement(itemId, count, chance)` | `{type:'minecraft:item', io:'output', stack:{id,count}, chance}` |
-| `api.fluidInputRequirement(fluidId, amount)` | `{type:'minecraft:fluid', io:'input', fluid:{fluid}, amount}` |
+| `api.fluidInputRequirement(fluidId, amount)` | `{type:'minecraft:fluid', io:'input', fluid:fluidId, amount}` |
 | `api.fluidOutputRequirement(fluidId, amount, chance)` | `{type:'minecraft:fluid', io:'output', stack:{id,amount}, chance}` |
 | `api.energyRequirement(io, fePerTick)` | `{type:'neoforge:energy', io, fe_per_tick}` |
 | `api.machineRecipe(pool, tickTime, ...requirements)` | 完整配方 JSON |
