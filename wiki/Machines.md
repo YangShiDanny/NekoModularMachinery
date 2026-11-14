@@ -49,6 +49,34 @@ MMCREvents.startup(event => {
 { "machine.my_mod.smelter": "铁熔炉" }
 ```
 
+## 1.5 主机与模块（HOST / MODULE）
+
+模块机器不是普通机器：**模块的结构里要有模块耦合器，主机要声明接受它**。两边都得写。
+
+```js
+// 主机
+event.createMachine('my_mod:elevator')
+  .recipePool('my_mod:elevator')
+  .host('my_mod:reassembler')       // HOST + 接受列表，可传多个 id
+  .register()
+
+// 模块
+event.createMachine('my_mod:reassembler')
+  .recipePool('my_mod:reassembler', 'my_mod:miner')
+  .allowMultithreading()
+  .module()                         // MODULE
+  .register()
+```
+
+MMCR 会校验这三条，违反时那条机器声明被拒（不会崩游戏，日志里有 `skipped`）：
+
+- HOST **必须**至少接受一个模块；非 HOST **不能**声明接受模块。本附属发现这种组合会打一行 warn 并丢弃接受列表，而不是把整条声明弄坏。
+- `api.coupler()` 只是「这一格必须是模块耦合器」的**物理安装点**，它不等于接受关系，也不等于配方上的主机要求。
+- 一台模块可以挂多个配方池，配方靠自己的 `recipe_pool` 决定进哪个池。
+
+完整可跑的主机 + 模块示例（结构 17×12×17、耦合器、三条配方）见
+`examples/startup_scripts/01_space_elevator.py` 与 `02_space_elevator_structure.py`。
+
 ## 2. 外观
 
 ### `appearance(blockId)`

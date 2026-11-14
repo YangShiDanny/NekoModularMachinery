@@ -168,6 +168,8 @@ allowModifiers()          allowMultithreading()      allowParallelism()
 maxParallelAmount(n)      maxParallelism(n)
 factoryThreads(n)
 
+host(...moduleIds)        module()                   role('HOST'|'MODULE'|'NORMAL')
+
 networkInterface(maxCount, maxConnections)
 
 tickBehavior(Consumer<TickHooks>)

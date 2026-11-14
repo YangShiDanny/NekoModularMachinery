@@ -12,7 +12,7 @@ MMCR 官方 wiki 的「全部示例」是按机器逐页给的 KubeJS 脚本。�
 | `distillation-tower` | 蒸馏塔，流体进出 | ✅ 示例 4 |
 | `cracker` | 裂解机，并行 | ✅ 示例 5 |
 | `reactor` / `purpur-furnace` | 反应堆 / 紫珀炉 | 用示例 1–5 的组合可达 |
-| `space-elevator` | 太空电梯，自定义 tick | 需要 [行为回调](Behaviors) |
+| `space-elevator` | 太空电梯，主机 / 模块 + 耦合器 | ✅ 完整移植进 `examples/`（见下节） |
 | `compute-network-*` | 计算网络 | 需要 MMCR 网络接口，超出本页范围 |
 | `data-store-test-machine` | 数据存储 | 同上 |
 | `*-tick-test-machine` | tick 测试 | 参考 [行为回调](Behaviors) |
@@ -287,6 +287,37 @@ ServerEvents.recipes(event => {
 | 特殊行为 | `tickBehavior` / `recipeBehavior`，见 [行为回调](Behaviors) |
 | 多方块面接口 | `api.anyOf(...)` 里堆 `itemInput()` / `fluidOutput()` / `energyInput()` |
 | 端口数量限制 | `portRequirements({...})` / `portTierRequirements(...)` |
+
+## 可直接跑的示例脚本（Python）
+
+仓库 `examples/` 里的四个脚本是 MMCR 官方 `A_Module_Machine.js`（太空电梯）的完整移植，
+用 **Python 子集**写——NekoJS 内置 Python 转译器，`.py` 和 `.js` 一样丢进脚本目录就会被加载，
+能用同一套全局绑定（`MMCREvents`、`MMCR.getAPI()`、`ServerEvents` …）。
+
+| 文件 | 内容 |
+|---|---|
+| `startup_scripts/01_space_elevator.py` | 主机 `my_pack:space_elevator`（`host`）+ 模块 `my_pack:space_reassembler`（`module`） |
+| `startup_scripts/02_space_elevator_structure.py` | 电梯 17×12×17、重组机 3×4×3，含 `api.coupler()` 与控制器符号 |
+| `server_scripts/03_recipes.py` | 三条 `machine_recipe`（电梯池 / 模块池 / 采矿池） |
+| `client_scripts/04_jei_info.py` | JEI 附加说明 |
+| `assets/my_pack/lang/*.json` | 机器名与配方池名 |
+| `assets/mmcr/lang/*.json` | **控制器方块名**（在 `mmcr` 命名空间下） |
+
+Python 侧的注意点：
+
+- `pattern()` 每层一次，用 `lift.pattern(*z_slice)` 展开一个字符串列表即可，不用逐行写。
+- 回调用 `def` + 传函数名：`MMCREvents.startup(declare_structures)`，比 JS 的箭头函数更清楚。
+- 结构里的槽位、耦合器、控制器写法与 JS 完全一致——底层是同一套 Java 对象。
+
+```python
+def declare_machines(event):
+    lift = event.createMachine('my_pack:space_elevator')
+    lift.recipePool('my_pack:space_elevator')
+    lift.host('my_pack:space_reassembler')
+    lift.register()
+
+MMCREvents.startup(declare_machines)
+```
 
 ## 下一步
 

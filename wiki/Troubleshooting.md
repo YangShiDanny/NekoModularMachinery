@@ -215,6 +215,32 @@ mixins/extras/mmcr.jei.mixins.json:JeiRecipeManagerMixin from mod mmcr failed in
 
 ## 机器/结构问题
 
+### 控制器方块显示成 `block.mmcr.xxx_controller`（没有名字）
+
+控制器方块**不是注册在你的命名空间下**。MMCR 把所有机器的控制器统一注册进它自己的
+`mmcr` 命名空间，路径才是「机器路径 + `_controller`」：
+
+```
+机器 my_pack:space_elevator  ->  方块 mmcr:space_elevator_controller
+                                 lang 键 block.mmcr.space_elevator_controller
+```
+
+所以写 `block.my_pack.space_elevator_controller` 是**无效**的，游戏里就会显示原始 key。
+方块名和物品名是两套键，两个都要写：
+
+```json
+{
+  "block.mmcr.space_elevator_controller": "太空电梯控制器",
+  "item.mmcr.space_elevator_controller": "太空电梯控制器"
+}
+```
+
+文件放 `nekojs/assets/mmcr/lang/zh_cn.json`（NekoJS 会把 `nekojs/assets` 整个挂成资源包）。
+机器自己的名字仍然是 `machine.<机器命名空间>.<路径>`，那套键放你自己命名空间的 lang 文件里。
+
+同一路径的两台机器（`a:smelter` 与 `b:smelter`）会撞同一个控制器方块名，控制器只会注册一个——
+给机器起名时避开这种冲突。
+
 ### 控制器放下去，右键成型失败
 
 按可能性排序：

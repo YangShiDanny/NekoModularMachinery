@@ -1,14 +1,15 @@
 {
-  "machine.my_pack.blast_furnace": "示例高炉",
-  "machine.my_pack.simple_furnace": "示例熔炉",
-  "machine.my_pack.big_furnace": "示例大熔炉",
-  "machine.my_pack.heated_furnace": "示例加热炉",
-  "level.my_pack.heat": "热量等级",
-  "block.my_pack.machine_casing": "机器外壳",
-  "block.my_pack.blast_furnace_controller": "示例高炉控制器",
-  "block.my_pack.simple_furnace_controller": "示例熔炉控制器",
-  "block.my_pack.big_furnace_controller": "示例大熔炉控制器",
-  "block.my_pack.heated_furnace_controller": "示例加热炉控制器",
-  "jei.my_pack.blast_furnace.info": "示例高炉：每 %s tick 处理一次配方。",
-  "jei.my_pack.iron_to_nugget.info": "把铁锭磨成铁粒。"
+  "machine.my_pack.space_elevator": "太空电梯",
+  "machine.my_pack.space_reassembler": "太空重组机",
+
+  "recipe_pool.my_pack.space_elevator": "太空电梯",
+  "recipe_pool.my_pack.space_reassembler": "太空重组机",
+  "recipe_pool.my_pack.space_miner": "太空采矿",
+  "recipe_pool.my_pack.space_1": "测试用配方池 1",
+  "recipe_pool.my_pack.space_2": "测试用配方池 2",
+  "recipe_pool.my_pack.space_3": "超长名称配方池渲染测试 3",
+
+  "jei.my_pack.space_elevator.info": "太空电梯是主机，可接受太空重组机模块。",
+  "jei.my_pack.space_elevator_apple.info": "1 个苹果重组为 3 个金苹果。",
+  "jei.my_pack.space_miner.info": "太空采矿池，由挂载的太空重组机执行。"
 }

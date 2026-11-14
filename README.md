@@ -18,7 +18,7 @@
 |---|---|
 | [**Wiki**](https://github.com/YangShiDanny/NekoModularMachinery/wiki) | 教程：安装、快速开始、机器、结构、配方、迁移、排错 |
 | [`docs/API.md`](docs/API.md) | 参考手册：全部方法签名、参数、返回值 |
-| [`examples/`](examples/) | 可直接抄的 startup / server / client 脚本 |
+| [`examples/`](examples/) | 可直接跑的示例：太空电梯（主机 + 模块），Python 脚本 + lang |
 | [`wiki/`](wiki/) | Wiki 源码（CI 自动同步到 GitHub Wiki） |
 
 ---
@@ -91,7 +91,7 @@ mmcr-nekojs/
 │   ├── build.yml                 矩阵编译 + 自动打 tag 发 Release
 │   └── wiki.yml                  把 wiki/ 同步到 GitHub Wiki
 ├── scriptpack/packs/mmcr_nekojs/         NekoJS 版本化脚本包（recipe schema，可选）
-├── examples/                             可直接抄的 startup/server/client 脚本 + lang
+├── examples/                             太空电梯示例（.py）: startup/server/client + lang
 ├── wiki/                                 Wiki 源码（教程）
 ├── docs/API.md                           参考手册（全部方法签名）
 └── LICENSE                               MIT
@@ -193,8 +193,13 @@ CI 里还有一道产物校验：解包 jar 确认 `META-INF/neoforge.mods.toml`
 - 只要 recipe schema：把 `scriptpack/packs/mmcr_nekojs/data/mmcr/nekojs/recipe_types/machine_recipe.json`
   复制到 `nekojs/data/mmcr/nekojs/recipe_types/machine_recipe.json`。
 
-把 `examples/` 下三个脚本分别放进 `nekojs/startup_scripts/`、`server_scripts/`、`client_scripts/`，
+把 `examples/` 下四个 `.py` 分别放进 `nekojs/startup_scripts/`、`server_scripts/`、`client_scripts/`，
 `assets/` 放进 `nekojs/assets/`，首次启动后按需要执行 `/nekojs probe` 刷新补全。
+
+> 这些示例是 MMCR 官方 `A_Module_Machine.js`（太空电梯）的 **Python 版**：NekoJS 内置 Python
+> 转译器，`.py` 和 `.js` 一样丢进脚本目录就会被加载，全局绑定完全相同。
+> 注意 `assets/mmcr/lang/*.json` 是**控制器方块名**——控制器统一注册在 `mmcr` 命名空间下，
+> 写在自己命名空间里是不会生效的（见 [排错](wiki/Troubleshooting.md)）。
 
 ## 6. 脚本示例（与 KubeJS 版对照）
 

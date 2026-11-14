@@ -1,14 +1,17 @@
 package cn.howxu.mmcr.nekojs.builder;
 
+import cn.howxu.mmcr.nekojs.MMCRNekoJS;
 import cn.howxu.mmcr.nekojs.bridge.DeclarationStore;
 import cn.howxu.mmcr.nekojs.version.Ids;
 import cn.howxu.mmcr.publicapi.Machines;
 import cn.howxu.mmcr.publicapi.behavior.RecipeHooks;
 import cn.howxu.mmcr.publicapi.behavior.TickHooks;
+import cn.howxu.mmcr.publicapi.machine.MachineKind;
 import cn.howxu.mmcr.publicapi.machine.MachineSpec;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.function.Consumer;
 
@@ -34,6 +37,8 @@ public final class MachineBuilderJS {
     private int networkInterfaceMax = -1, networkInterfaceConnections = -1;
     private Consumer<TickHooks> tickHandler;
     private Consumer<RecipeHooks> recipeHandler;
+    private String role;
+    private final List<String> acceptedModules = new ArrayList<>();
 
     public MachineBuilderJS(String id) {
         this.id = Objects.requireNonNull(id, "machine id");
@@ -50,6 +55,36 @@ public final class MachineBuilderJS {
     }
 
     public MachineBuilderJS recipePool(String pool) { return recipePool(new String[]{pool}); }
+
+    // ---- host / module roles ----
+
+    /**
+     * Declares this machine a {@code HOST} and lists the module machines it accepts.
+     *
+     * <p>A host <b>must</b> declare at least one accepted module, and a non-host must not declare
+     * any - MMCR rejects both cases when it validates the definition. Couplers in the structure
+     * only provide the physical anchor; they do not imply the acceptance relation.
+     */
+    public MachineBuilderJS host(String... moduleIds) {
+        this.role = "HOST";
+        this.acceptedModules.clear();
+        if (moduleIds != null) {
+            for (String module : moduleIds) {
+                if (module != null && !module.isBlank()) acceptedModules.add(module);
+            }
+        }
+        return this;
+    }
+
+    /** Declares this machine a {@code MODULE}: a host can attach it through a module coupler. */
+    public MachineBuilderJS module() {
+        this.role = "MODULE";
+        this.acceptedModules.clear();
+        return this;
+    }
+
+    /** Raw form, accepting {@code NORMAL} / {@code HOST} / {@code MODULE} (case-insensitive). */
+    public MachineBuilderJS role(String kind) { this.role = kind; return this; }
 
     // ---- appearance ----
     public MachineBuilderJS appearance(String blockId) { this.basicBlock = blockId; return this; }
@@ -164,6 +199,17 @@ public final class MachineBuilderJS {
         if (finishSound != null) draft.finishSound(Ids.parse(finishSound));
         if (tickHandler != null) draft.tickBehavior(tickHandler);
         if (recipeHandler != null) draft.recipeBehavior(recipeHandler);
+
+        if (role != null && !role.isBlank()) {
+            MachineKind kind = MachineKind.valueOf(role.trim().toUpperCase(Locale.ROOT));
+            draft.role(kind);
+            if (kind == MachineKind.HOST) {
+                for (String module : acceptedModules) draft.acceptedModule(Ids.parse(module));
+            } else if (!acceptedModules.isEmpty()) {
+                MMCRNekoJS.LOG.warn("MMCR/NekoJS: machine {} is {} but declares accepted module(s) {}; "
+                        + "MMCR rejects that, so they were dropped", id, kind, acceptedModules);
+            }
+        }
 
         MachineSpec spec = draft.build();
         DeclarationStore.putMachine(id, spec);
