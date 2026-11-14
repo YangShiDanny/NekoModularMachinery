@@ -195,6 +195,7 @@ mixins/extras/mmcr.jei.mixins.json:JeiRecipeManagerMixin from mod mmcr failed in
 3. **行宽不一致**。写了 3 个字符的行里混进 4 个字符，整个结构错位，**不报错**。
 4. **`portRequirements` 不满足**。这个是真校验，数量不够就成不了型。
 5. **控制器符号出现了多次**。`.controller('C')` 的 `C` 应该只出现一次。
+6. **控制器符号被 `set(...)` 绑过**。`set('C', api.block(...))` 会让那一格要求你放别的方块（MMCR 只在符号未被绑定时才替换成控制器方块），结构永远成型失败。0.1.5 起会忽略该绑定并打 `symbol 'C' is the controller, so set('C', ...) is ignored`。
 
 用 `/mmcr build <机器ID>` 让 MMCR 自己建一遍，比手动摆快得多，也能快速看出形状对不对。
 

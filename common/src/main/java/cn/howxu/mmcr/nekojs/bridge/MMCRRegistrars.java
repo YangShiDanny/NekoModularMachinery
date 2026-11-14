@@ -69,21 +69,30 @@ public final class MMCRRegistrars {
 
     @SubscribeEvent
     public static void onWorkstations(RegisterJeiWorkstationsEvent event) {
+        List<String> skipped = new ArrayList<>();
         DeclarationStore.poolWorkstations().forEach(pair ->
-                event.addRecipePoolWorkstation(Ids.parse(pair[0]), Ids.parse(pair[1])));
+                attempt(skipped, "poolWorkstation " + pair[0] + " -> " + pair[1],
+                        () -> event.addRecipePoolWorkstation(Ids.parse(pair[0]), Ids.parse(pair[1]))));
         DeclarationStore.machineWorkstations().forEach(pair ->
-                event.addMachineWorkstation(Ids.parse(pair[0]), Ids.parse(pair[1])));
+                attempt(skipped, "machineWorkstation " + pair[0] + " -> " + pair[1],
+                        () -> event.addMachineWorkstation(Ids.parse(pair[0]), Ids.parse(pair[1]))));
+        reportSkipped(skipped);
     }
 
     @SubscribeEvent
     public static void onInformation(RegisterJeiRecipeInformationEvent event) {
+        List<String> skipped = new ArrayList<>();
         for (DeclarationStore.RecipeInfo info : DeclarationStore.recipeInfos()) {
-            if (info.pool()) {
-                event.registerRecipePool(Ids.parse(info.id()), info.key(), info.args());
-            } else {
-                event.registerRecipe(Ids.parse(info.id()), info.key(), info.args());
-            }
+            String what = (info.pool() ? "poolInfo " : "recipeInfo ") + info.id();
+            attempt(skipped, what, () -> {
+                if (info.pool()) {
+                    event.registerRecipePool(Ids.parse(info.id()), info.key(), info.args());
+                } else {
+                    event.registerRecipe(Ids.parse(info.id()), info.key(), info.args());
+                }
+            });
         }
+        reportSkipped(skipped);
     }
 
     // ------------------------------------------------------------------ helpers

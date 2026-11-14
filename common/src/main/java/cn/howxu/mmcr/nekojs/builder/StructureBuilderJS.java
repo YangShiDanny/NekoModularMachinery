@@ -81,6 +81,20 @@ public final class StructureBuilderJS {
             throw new IllegalStateException("MMCR structure " + id + " declared no pattern()");
         }
 
+        // MMCR only substitutes the controller block when the controller symbol still carries the
+        // "automatic controller" predicate (PatternDefinition.bindController). PatternBuilder
+        // installs that predicate inside controller(symbol) *only if nothing was bound first*, so a
+        // stray set('<controller>', block) silently turns the controller cell into a plain block:
+        // the structure then requires a block that the controller never is and can never form.
+        // Drop such a binding instead of shipping a dead structure.
+        if (symbols.get(controllerSymbol) != null) {
+            symbols.remove(controllerSymbol);
+            MMCRNekoJS.LOG.warn("MMCR/NekoJS structure {}: symbol '{}' is the controller, so "
+                            + "set('{}', ...) is ignored - remove it from the script. "
+                            + "MMCR places the controller block in that cell by itself.",
+                    id, controllerSymbol, controllerSymbol);
+        }
+
         var draft = Structures.structure();
         if (stateSensitive) draft.stateSensitive(); else draft.stateInsensitive();
 
