@@ -114,18 +114,21 @@ event.createStructure('my_mod:smelter')
 - 预览版在转译语言上没有把「按原始源码校验」切成「按转译产物校验」，于是 `def`、`#` 注释、缩进全部被 JS 解析器
   碎成一堆伪调用/伪标识符。
 
-上游主分支已经修了（`NekoModulePipeline.rawPreflightApplies(extension)` 只对 `.js/.mjs/.cjs/.jsx` 用原始源码，
-`.py/.ts` 改用转译产物），但**预览版 jar 里这条路径仍在生效**。
+上游**只修了编译路径**：主分支的 `NekoModulePipeline.prepareStages()` 会用
+`rawPreflightApplies(extension)` 判断，`.py/.ts` 改在校验转译产物；但**入口脚本那条校验路径没有门控**——
+`ScriptExecutor.validateGlobalBindings` → `NekoModulePipelineCache.validateEntryBindings` →
+`ScriptSourcePreflight.validate` 仍然是拿原始源码直接喂给 `ValParser`（预览版更早的调用点也一样）。
+所以升级到主分支编译的版本，这一屏红字依然会出现。已向上游提 issue。
 
-临时关掉（纯静态检查，不影响执行）：
+**没有开关能关掉它。** `engine.toml` 里的 `scriptMemberValidation = false` 只 gate 了
+`NekoModulePipeline` 那条编译期路径；上面这条入口路径从不读配置（预览版的
+`validateGlobalBindings` 里连 config 字段都没访问过，字节码可查），所以置 `false` 之后红字照旧。
+只能等上游把 `rawPreflightApplies` 也用到入口路径上。
 
-```toml
-# nekojs/config/engine.toml
-scriptMemberValidation = false
-```
-
-代价是 JS 脚本的成员拼写检查也一起没了（例如把 `api.itemInput()` 写成 `api.anyOfItemInput()` 不再提示）。
-等升级到修好的版本再打开即可。
+因此建议把这个开关**保持 `true`**：对 `.py` 它校验的是转译产物（有效检查，能抓到
+`api.anyOfItemInput()` 这类把 KubeJS 名字搬过来写错的情况），对 `.js` 校验原始源码。
+那些红字是 `ERROR` 级别但脚本照常执行，判断脚本有没有真的跑起来，只看脚本自己的 `print`
+和 `MMCR/NekoJS … declarations` 那几行。
 
 ### `.py` 报 `Duplicate local ESM binding 'xxx'`
 
