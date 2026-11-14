@@ -12,6 +12,7 @@ import com.tkisor.nekojs.api.event.EventGroupRegistry;
 import com.tkisor.nekojs.api.recipe.RecipeNamespaceEntry;
 import com.tkisor.nekojs.core.plugin.RecipeNamespaceRegister;
 import com.tkisor.nekojs.core.plugin.RecipeSchemaRegister;
+import com.tkisor.nekojs.wrapper.event.server.RecipeEventJS;
 
 /**
  * NekoJS plugin entry point, discovered through {@code @RegisterNekoJSPlugin}.
@@ -44,8 +45,16 @@ public final class MMCRNekoJSPlugin implements NekoJSPlugin {
     @Override
     public void registerRecipeNamespaces(RecipeNamespaceRegister registry) {
         // event.recipes.mmcr.machine_recipe(pool, ticks, requirements)
+        //
+        // The handler keeps the event so it can hand the finished JSON back through
+        // RecipeEventJS.custom(JsonObject), which registers the recipe *and* returns the
+        // RecipeJsonBuilder the script chains .id(...) on. Returning the bare JsonObject made
+        // .id(...) fail with "Unknown identifier: id", and no recipe was ever registered.
         registry.register(RecipeNamespaceEntry.of(MachineRecipeSchema.NAMESPACE,
-                event -> new MachineRecipeHandler(), MachineRecipeHandler.class));
+                event -> event instanceof RecipeEventJS js
+                        ? new MachineRecipeHandler(js)
+                        : new MachineRecipeHandler(),
+                MachineRecipeHandler.class));
     }
 
     @Override

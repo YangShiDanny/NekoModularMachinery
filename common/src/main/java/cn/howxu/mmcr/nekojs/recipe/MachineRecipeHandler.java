@@ -1,9 +1,11 @@
 package cn.howxu.mmcr.nekojs.recipe;
 
+import cn.howxu.mmcr.nekojs.version.VersionSupport;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
+import com.tkisor.nekojs.wrapper.event.server.RecipeEventJS;
 
 import java.util.Map;
 
@@ -17,32 +19,59 @@ import java.util.Map;
  * while MMCR's recipe window is open, and NekoJS STARTUP scripts run before the item registry is
  * populated.
  *
- * <p>The wrapper deliberately does not depend on the {@code RecipeEventJS} type: NekoJS has one
- * shape per script generation, so the factory in
- * {@link cn.howxu.mmcr.nekojs.MMCRNekoJSPlugin} passes the event through {@code Object}.
+ * <p>One handler instance is created per {@code ServerEvents.recipes} callback by the factory in
+ * {@link cn.howxu.mmcr.nekojs.MMCRNekoJSPlugin}, carrying the event so the JSON can be registered
+ * immediately and the script gets a {@code RecipeJsonBuilder} back (see {@link #handoff}).
  */
 public final class MachineRecipeHandler {
 
+    /**
+     * The event this handler was created for. Non-null when NekoJS built the handler through
+     * {@code RecipeNamespaceEntry.of(...)}, which is how every real call arrives.
+     */
+    private final RecipeEventJS event;
+
+    public MachineRecipeHandler() {
+        this(null);
+    }
+
+    public MachineRecipeHandler(RecipeEventJS event) {
+        this.event = event;
+    }
+
     /** Typed constructor mirroring MMCR's KubeJS builder signature. */
-    public JsonObject machine_recipe(Object recipePool, Object tickTime, Object requirements) {
+    public Object machine_recipe(Object recipePool, Object tickTime, Object requirements) {
         JsonObject json = new JsonObject();
         json.addProperty("type", "mmcr:machine_recipe");
         json.addProperty("recipe_pool", String.valueOf(recipePool));
         json.addProperty("tick_time", toInt(tickTime, 20));
         json.add("requirements", toArray(requirements));
-        return json;
+        return handoff(json);
     }
 
     /** Convenience overload: {@code machine_recipe(pool, requirements)} with the default 20 ticks. */
-    public JsonObject machine_recipe(Object recipePool, Object requirements) {
+    public Object machine_recipe(Object recipePool, Object requirements) {
         return machine_recipe(recipePool, 20, requirements);
     }
 
     /** Full form taking a single JSON object; unknown keys pass straight through to MMCR. */
-    public JsonObject machine_recipe(JsonObject json) {
+    public Object machine_recipe(JsonObject json) {
         JsonObject copy = json.deepCopy();
         copy.addProperty("type", "mmcr:machine_recipe");
-        return copy;
+        return handoff(copy);
+    }
+
+    /**
+     * Registers the JSON through NekoJS and returns its {@code RecipeJsonBuilder}, so the script can
+     * keep chaining {@code .id('...')} / {@code .merge(...)}.
+     *
+     * <p>Returning the bare {@link JsonObject} made {@code event.recipes.mmcr.machine_recipe(...)}
+     * hand back a Gson object, and {@code .id(...)} on it failed with
+     * {@code TypeError: invokeMember (id) on com.google.gson.JsonObject failed due to:
+     * Unknown identifier: id}.
+     */
+    private Object handoff(JsonObject json) {
+        return event == null ? json : event.custom(json);
     }
 
     private static int toInt(Object value, int fallback) {

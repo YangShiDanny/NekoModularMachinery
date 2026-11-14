@@ -34,18 +34,16 @@ ServerEvents.recipes(event => {
 
 `requirements` 可以是数组，也可以是单个对象。不写 `.id(...)` 时 NekoJS 会自动生成 `nekojs:machine_recipe_<hash>` 这样的 ID。
 
-### 等价：`event.custom({...})`
+### 手写字段而不是位置参数
 
-```js
-ServerEvents.recipes(event => {
-  event.custom({
-    type: 'mmcr:machine_recipe',
-    recipe_pool: 'my_mod:smelter',
-    tick_time: 200,
-    requirements: [ /* ... */ ]
-  }).id('my_mod:smelter_iron')
-})
-```
+想按字段名写全整份 JSON，**不要用 `event.custom({...})`**：它同时有 `custom(RecipeJsonValue)` 和
+`custom(JsonObject)` 两个重载，JS 对象字面量传不进去（`Multiple applicable overloads found`）。
+
+可行的两条路：
+
+1. **还是走 schema**，字段名照搬 MMCR 官方文档（`recipe_pool` / `tick_time` / `requirements` …），
+   只是 requirement 用 `MMCR.getAPI()` 的 helper 拼；
+2. **写数据包 JSON**（下一节），那是纯数据文件，`/reload` 就能换，和 KubeJS 无关。
 
 字段名和 [MMCR 官方文档](https://github.com/Nibelungorum/mmcr-wiki) 完全一致，可以直接从 KubeJS 脚本搬过来。
 
@@ -114,27 +112,19 @@ const requirements = [
 
 把它们放进配方：
 
-> **别直接把上面这种嵌套字面量塞进 `machine_recipe(...)`。**
-> NekoJS 在把 JS 参数交给 schema 时会扫描对象字面量的键，**嵌套层也算**，
-> 于是 `stack: { id: ... }` 里的 `id` 会被当成 schema 字段名，报一条只有字段名的错
-> （日志里是 `原因: id`，位置指向数组那一行）。这不是 MMCR 的错，也不是配置写错了。
+> **`requirements` 里的对象字面量本身没问题**（MMCR 的 `RECIPE_ITEM_STACK_CODEC` 就是 `stack: { id, count }`），
+> 但这要求 **0.1.4 及以后**：0.1.3 里 `machine_recipe(...)` 返回的是裸 Gson `JsonObject`，链 `.id()` 会报
+> `Unknown identifier: id`，而且配方根本没注册。见 [排错](Troubleshooting)。
 >
-> 两种可行写法：
->
-> 1. **用 helper 拼 requirement**（返回 Java Map，不经过字面量扫描，推荐）：
->    `const api = MMCR.getAPI()`，然后 `api.itemInputRequirement(id, count)`、
->    `api.itemOutputRequirement(id, count, chance)`、`api.fluidInputRequirement(...)`、
->    `api.energyRequirement(io, fePerTick)`。
-> 2. **走 `event.custom`**，把整份 JSON 一次交出去（见本章开头），字面量在 `custom` 里不会被 schema 扫描。
+> 另外别把字面量直接交给 `event.custom({...})`——那个方法有 `RecipeJsonValue` / `JsonObject` 两个重载，
+> GraalJS 会报 `Multiple applicable overloads`。要手写整份 JSON 时，用 `MMCR.getAPI()` 的 helper 拼 Map。
 
 ```js
-const api = MMCR.getAPI()
-
 ServerEvents.recipes(event => {
   event.recipes.mmcr.machine_recipe('my_mod:smelter', 200, [
-    api.itemInputRequirement('minecraft:iron_ore', 1),
-    api.itemOutputRequirement('minecraft:iron_ingot', 1, 1.0),
-    api.energyRequirement('input', 10)
+    MMCR.getAPI().itemInputRequirement('minecraft:iron_ore', 1),
+    MMCR.getAPI().itemOutputRequirement('minecraft:iron_ingot', 1, 1.0),
+    MMCR.getAPI().energyRequirement('input', 10)
   ]).id('my_mod:smelter_iron')
 })
 ```

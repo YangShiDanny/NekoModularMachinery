@@ -75,28 +75,21 @@ net.neoforged.fml.ModLoadingException: Loading errors encountered:
 
 机器 id 必须和结构 id **完全一致**（`createMachine('a:b')` ↔ `createStructure('a:b')`），大小写、命名空间都算。
 
-### 配方脚本报 `原因: id`（或别的字段名）
+### 配方脚本报 `Unknown identifier: id`
 
 ```
-位置: server_scripts/src/x.js:12:3
-原因: id
+TypeError: invokeMember (id) on com.google.gson.JsonObject failed due to: Unknown identifier: id
 ```
 
-整段没有 Java 堆栈，位置指向 `requirements` 数组里某个对象字面量。原因不在 MMCR：NekoJS 把 JS 参数交给 recipe schema
-时会扫描对象字面量的键（**包括嵌套层**），`stack: { id: ... }` 里的 `id` 被当成 schema 字段名，于是报出这个字段名。
+**0.1.3 及更早的 bug**：`event.recipes.mmcr.machine_recipe(...)` 只构造了 JSON 就把裸的 Gson `JsonObject` 返回给脚本，
+既没有真正注册配方，也没有 `.id(...)` 这个方法——所以链式 `.id()` 直接炸，而那个 `id` 就是方法名，不是字段名。
 
-改用返回 Java Map 的 helper，或干脆走 `event.custom`：
+0.1.4 起改为走 `RecipeEventJS.custom(JsonObject)`：注册配方并返回 `RecipeJsonBuilder`，`.id('...')` 正常。升级即可，脚本不用改。
 
-```js
-const api = MMCR.getAPI()
-event.recipes.mmcr.machine_recipe('mmcr_test:smelter', 100, [
-  api.itemInputRequirement('minecraft:iron_ore', 1),
-  api.itemOutputRequirement('minecraft:iron_ingot', 1, 1.0),
-  api.energyRequirement('input', 10)
-]).id('mmcr_test:smelter_iron')
-```
-
-修完执行 `/nekojs reload`，看 `logs/nekojs/server.log` 有没有 `配方已提交`。
+顺便记一下另一个坑：**不要**把 JS 对象字面量直接交给 `event.custom({...})`。
+`RecipeEventJS.custom` 同时有 `custom(RecipeJsonValue)` 和 `custom(JsonObject)` 两个重载，GraalJS 无法在两者之间选，
+会报 `Multiple applicable overloads found for method name custom`。用 schema 形式
+（`event.recipes.mmcr.machine_recipe(...)`）就不会有这个问题。
 
 ### 进世界/开 JEI 时崩：`InjectionError ... mmcr$replaceRecipeBackground`
 
