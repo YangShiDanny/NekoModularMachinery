@@ -116,11 +116,10 @@ event.createStructure('my_mod:smelter')
 修饰符槽：
 
 ```js
-.set('M', event.modifierSlot('my_mod:overclock'))
 .set('M', event.modifierSlot('my_mod:overclock', api.block('minecraft:iron_block')))
 ```
 
-第二个参数是「这个位置没插修饰符时允许用哪个方块占位」。
+第二个参数是「这个位置没插修饰符时允许用哪个方块占位」。**本附属里它是必需的**：那一格在 pattern 里必须有谓词，没有第二个参数就没有谓词（0.1.6 起会直接报错提示你补上）。
 
 ## 6. 端口数量限制
 

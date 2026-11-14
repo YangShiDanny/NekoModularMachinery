@@ -73,6 +73,8 @@ event.createStructure('my_mod:smelter')
 
 `event.levelSlot('my_mod:coil')` 表示「这个位置要放某个 `my_mod:coil` 类型的等级方块」。玩家放铜块就是铜线圈，放金块就是金线圈。
 
+> **等级类型和等级要先于这条结构声明。** 等级槽那一格在 pattern 里也得有谓词，本附属是拿「该类型已声明的所有等级的方块」拼 `anyOf(...)` 出来的（MMCR 自己的内置结构也是这么做的）。所以写成上面这样、把 `createLevelType` / `createLevel` 放在结构之前；反过来会产生 `Unbound pattern symbol: L`——0.1.6 起会直接报一句可读的错，告诉你先声明等级。
+
 ### 4. 配方里要求等级
 
 ```js
@@ -155,16 +157,12 @@ event.registerModifierItem('my_mod:overclock_chip', 'my_mod:overclock')
 event.createStructure('my_mod:smelter')
   .pattern('BMB', 'MCM', 'BMB')
   .set('B', api.block('minecraft:iron_block'))
-  .set('M', event.modifierSlot('my_mod:overclock'))
+  .set('M', event.modifierSlot('my_mod:overclock', api.block('minecraft:iron_block')))
   .controller('C')
   .build()
 ```
 
-第二个参数可选，表示「没插修饰符时允许用什么方块占位」：
-
-```js
-.set('M', event.modifierSlot('my_mod:overclock', api.block('minecraft:iron_block')))
-```
+第二个参数是「没插修饰符时允许用什么方块占位」，**本附属里必需**：那一格在 pattern 里得有谓词，没有第二个参数就没有谓词（0.1.6 起会直接报错提示补上）。
 
 ### 6. 配方里要求修饰符
 

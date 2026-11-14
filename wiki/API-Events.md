@@ -244,8 +244,7 @@ MMCREvents.server(event => {
 | 方法 | 说明 |
 |---|---|
 | `event.levelSlot(typeId)` | 等级槽，`set('L', event.levelSlot('my_mod:voltage'))` |
-| `event.modifierSlot(modifierId)` | 修饰符槽 |
-| `event.modifierSlot(modifierId, replacement)` | 修饰符槽，且允许被替换成别的方块条件 |
+| `event.modifierSlot(modifierId, replacement)` | 修饰符槽，`replacement` 是那一格的摆放方块条件（必需，否则该符号没有谓词） |
 
 ### 5.3 修饰符
 

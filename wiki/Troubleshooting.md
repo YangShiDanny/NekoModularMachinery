@@ -99,6 +99,35 @@ event.createStructure('my_mod:smelter')
 真要根治得等上游：把 `nekojs` 的 `common/src/main/java/com/tkisor/nekojs/core/compiler/ValParser.java`
 里 `parseSuffix()` 开头的 `skipWs()` 改成 `skipWsCmt()` 即可（一行）。
 
+### 报 `Unbound pattern symbol` / 只有单个字母的错误（`原因: L`）
+
+```
+Script event mode=normal bus=...StartupEventJS ... callback exception:
+位置: startup_scripts/src/x.js:118:5
+原因: L
+```
+
+MMCR 要求 pattern 里出现的**每个符号都有谓词**。三种常见来源：
+
+1. **等级槽 / 修饰符槽的等级还没声明**。`set('L', event.levelSlot('my_mod:coil'))` 那一格，
+   谓词是拿「该类型已声明的所有等级」拼出来的，所以 `createLevelType` / `createLevel` 必须写在
+   这条结构**之前**（同一个 startup 回调里，靠上）。0.1.6 起会直接报一句可读的错，
+   0.1.5 及更早只会甩一个字母。
+2. **修饰符槽没给摆放方块**。`event.modifierSlot(id)` 只声明了修饰符，那一格放什么不知道——
+   要写成 `event.modifierSlot(id, api.block('...'))`。
+3. **符号拼错了**：pattern 里的字符和 `set(...)` 的字符不一致（大小写也算）。
+
+### `Binding 'RegistryEvents' has no member 'register'`
+
+这是 NekoJS 自己的注册 API 版本差异，跟本附属无关：
+
+| NekoJS 版本 | 写法 |
+|---|---|
+| preview3（1.1.0-preview3） | `RegistryEvents.block(event => event.create('ns:id', b => { b.hardness(4.0) }))`，事件名是 `item` / `block` / `fluid` / `entityType` … |
+| 新版本 | `RegistryEvents.register(event => event.block('ns:id', b => { b.hardness = 4.0 }))`，字段是 bean 属性 |
+
+照你装的 NekoJS 版本的 wiki 抄，别跨版本混用。示例脚本因此不注册自定义方块，直接用原版铁块当外壳。
+
 ### 崩溃：`Unknown machine definition: xxx:yyy` / `RegistrationException`
 
 ```
