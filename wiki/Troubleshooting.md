@@ -99,6 +99,56 @@ event.createStructure('my_mod:smelter')
 真要根治得等上游：把 `nekojs` 的 `common/src/main/java/com/tkisor/nekojs/core/compiler/ValParser.java`
 里 `parseSuffix()` 开头的 `skipWs()` 改成 `skipWsCmt()` 即可（一行）。
 
+### Python 脚本刷一屏 `binding-preflight unknown-identifier`（每个局部变量都报）
+
+```
+位置: startup_scripts/src/examples/01_space_elevator.py:21:5
+原因: Unknown identifier 'declare_machines'.
+ > 21 | def declare_machines(event):
+```
+
+整屏都是 `def` 名、参数名、局部变量名，甚至中文注释里的一串字被当成标识符。
+**脚本其实跑成功了**（日志末尾有脚本自己 `print` 的内容），这是 NekoJS **预览版**预检的误报：
+
+- 预检用它自己的轻量 JS 解析器 `ValParser` 分析源码，而 Python 是由 `PythonToJsCompiler` 转译成 JS 之后才执行的；
+- 预览版在转译语言上没有把「按原始源码校验」切成「按转译产物校验」，于是 `def`、`#` 注释、缩进全部被 JS 解析器
+  碎成一堆伪调用/伪标识符。
+
+上游主分支已经修了（`NekoModulePipeline.rawPreflightApplies(extension)` 只对 `.js/.mjs/.cjs/.jsx` 用原始源码，
+`.py/.ts` 改用转译产物），但**预览版 jar 里这条路径仍在生效**。
+
+临时关掉（纯静态检查，不影响执行）：
+
+```toml
+# nekojs/config/engine.toml
+scriptMemberValidation = false
+```
+
+代价是 JS 脚本的成员拼写检查也一起没了（例如把 `api.itemInput()` 写成 `api.anyOfItemInput()` 不再提示）。
+等升级到修好的版本再打开即可。
+
+### `.py` 报 `Duplicate local ESM binding 'xxx'`
+
+```
+[NEKO-1003] 脚本执行失败: nekojs:startup/src/examples/02_space_elevator_structure.py
+原因: Duplicate local ESM binding 'z_slice'
+```
+
+这次是真的失败：`NekoEsmLinker` 会把 `var` 绑定归到最近的**函数**作用域再查重，同一个函数里两个
+`for ... in ...` 用同一个循环变量名就会撞车——虽然 JS 本身允许 `var` 重复声明。
+
+Python 里给两个循环换不同的变量名即可：
+
+```python
+for lift_slice in ELEVATOR:
+    lift.pattern(*lift_slice)
+
+for module_slice in REASSEMBLER:
+    module_machine.pattern(*module_slice)
+```
+
+同理，别在一个脚本里把同一个名字当循环变量用两次。
+
 ### 报 `Unbound pattern symbol` / 只有单个字母的错误（`原因: L`）
 
 ```

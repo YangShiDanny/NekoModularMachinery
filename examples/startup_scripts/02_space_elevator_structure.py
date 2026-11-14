@@ -291,8 +291,8 @@ def declare_structures(event):
 
     # ---- 太空电梯 ----
     lift = event.createStructure('my_pack:space_elevator')
-    for z_slice in ELEVATOR:
-        lift.pattern(*z_slice)
+    for lift_slice in ELEVATOR:
+        lift.pattern(*lift_slice)
     lift.set('X', api.block('minecraft:smooth_quartz'))
     lift.set('A', api.block('minecraft:amethyst_block'))
     # api.coupler() 只声明「这一格必须是模块耦合器」。
@@ -309,21 +309,23 @@ def declare_structures(event):
     lift.build()
 
     # ---- 太空重组机 ----
-    module = event.createStructure('my_pack:space_reassembler')
-    for z_slice in REASSEMBLER:
-        module.pattern(*z_slice)
-    module.set('X', api.block('minecraft:quartz_pillar'))
-    module.set('A', api.block('minecraft:amethyst_block'))
-    module.set('B', api.anyOf(
+    # 循环变量名不要和上面那个重复：NekoJS 的 ESM 链接器把 `var` 归到最近的函数作用域，
+    # 同名两次会被判成 Duplicate local ESM binding（JS 本身允许，预览版过严）。
+    module_machine = event.createStructure('my_pack:space_reassembler')
+    for module_slice in REASSEMBLER:
+        module_machine.pattern(*module_slice)
+    module_machine.set('X', api.block('minecraft:quartz_pillar'))
+    module_machine.set('A', api.block('minecraft:amethyst_block'))
+    module_machine.set('B', api.anyOf(
         api.block('minecraft:smooth_quartz'),
         api.itemInput(),
         api.itemOutput(),
         api.energyInput()
     ))
-    module.set('D', api.block('minecraft:glass'))
-    module.set('E', api.coupler())
-    module.controller('F')
-    module.build()
+    module_machine.set('D', api.block('minecraft:glass'))
+    module_machine.set('E', api.coupler())
+    module_machine.controller('F')
+    module_machine.build()
 
     print('[example] 太空电梯 + 太空重组机结构已声明')
 

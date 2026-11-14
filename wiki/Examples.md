@@ -305,9 +305,13 @@ ServerEvents.recipes(event => {
 
 Python 侧的注意点：
 
-- `pattern()` 每层一次，用 `lift.pattern(*z_slice)` 展开一个字符串列表即可，不用逐行写。
+- `pattern()` 每层一次，用 `lift.pattern(*slice)` 展开一个字符串列表即可，不用逐行写。
 - 回调用 `def` + 传函数名：`MMCREvents.startup(declare_structures)`，比 JS 的箭头函数更清楚。
 - 结构里的槽位、耦合器、控制器写法与 JS 完全一致——底层是同一套 Java 对象。
+- **一个脚本里不要重复使用同一个循环变量名**：`NekoEsmLinker` 把 `var` 归到函数作用域查重，
+  两个 `for` 用同名变量会报 `Duplicate local ESM binding`（JS 允许，预览版过严）。
+- 预览版会在 `.py` 上报一屏 `binding-preflight unknown-identifier` 误报，见
+  [排错](Troubleshooting#python-脚本刷一屏-binding-preflight-unknown-identifier每个局部变量都报)。
 
 ```python
 def declare_machines(event):
