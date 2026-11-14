@@ -29,6 +29,13 @@ MMCREvents.startup(event => {
 
     // ---- 例子 2：5×5×3 立方体，带端口数量与等级约束 ----
     // 三次 pattern() = 3 个 z 层，每层 5 行（y）× 5 字符（x）
+    // 'C' 那一格也会被替换成控制器方块，绑定只写一次。
+    // portRequirements 是"校验"：接口摆不到位就不成型，它不会自动帮你生成端口。
+    // portTierRequirements 的等级名大小写不敏感，只写族名 = 任意等级。
+    //
+    // 注意：本文件的链式调用中间不放 // 注释。NekoJS 的静态预检解析器（ValParser）
+    // 在链的每一级之间只跳过空白、不跳过注释，注释会把链断成两句，日志里报
+    // "Unknown identifier 'pattern'"。注释一律写在整条链的外面。
     event.createStructure('my_pack:big_furnace')
         .pattern(
             'BBBBB',
@@ -53,15 +60,13 @@ MMCREvents.startup(event => {
         )
         .set('B', api.block('minecraft:bricks'))
         .set('T', api.anyOf('minecraft:blast_furnace', 'minecraft:furnace'))
-        .set('C', api.block('minecraft:bricks'))   // 占位，会被替换成控制器方块
+        .set('C', api.block('minecraft:bricks'))
         .controller('C')
-        // 端口数量约束：不满足则成型失败。这里是"校验"，不会自动帮你生成端口。
         .portRequirements({
             item_input_bus: 1,          // 至少 1 个
             item_output_bus: [1, 4],    // 1~4 个
             energy_input_hatch: 1
         })
-        // 端口等级约束（等级名大小写不敏感，只写族名 = 任意等级）
         .portTierRequirements(
             'energy_input_hatch>=NORMAL',
             ['item_input_bus', 'SMALL']
@@ -78,12 +83,13 @@ MMCREvents.startup(event => {
         .priority(0)
         .register()
 
+    // 三片分别对应 z=0 / z=1 / z=2：中间那片 'L' 是等级槽，'M' 是控制器位置。
     event.createStructure('my_pack:heated_furnace')
         .pattern('SSS')
-        .pattern('SLS')     // L 是等级槽，其余 S 是外壳
-        .pattern('SMS')     // M 是控制器位置
+        .pattern('SLS')
+        .pattern('SMS')
         .set('S', api.block('minecraft:stone_bricks'))
-        .set('L', event.levelSlot('my_pack:heat'))   // 等级槽
+        .set('L', event.levelSlot('my_pack:heat'))
         .set('M', api.block('my_pack:machine_casing'))
         .controller('M')
         .build()

@@ -24,8 +24,9 @@
 ```
 
 ```js
-.pattern('BBB', 'BCB', 'BBB')   // z = 0 这一片
-.pattern('BBB', 'B#B', 'BBB')   // z = 1 这一片
+// 第一句是 z = 0 这一片，第二句是 z = 1
+.pattern('BBB', 'BCB', 'BBB')
+.pattern('BBB', 'B#B', 'BBB')
 ```
 
 坑：
@@ -105,10 +106,12 @@ event.createLevel('my_mod:coil_basic').type('my_mod:coil').state('minecraft:copp
 event.createStructure('my_mod:smelter')
   .pattern('BLB', 'LCL', 'BLB')
   .set('B', api.block('minecraft:iron_block'))
-  .set('L', event.levelSlot('my_mod:coil'))   // ← 等级槽
+  .set('L', event.levelSlot('my_mod:coil'))
   .controller('C')
   .build()
 ```
+
+`set('L', event.levelSlot(...))` 那一格是**等级槽**：实际放什么方块由机器当前等级决定，见 [等级与修饰符](Levels-and-Modifiers)。
 
 修饰符槽：
 
@@ -176,14 +179,16 @@ heat_input_hatch / heat_output_hatch
 
 ## 完整例子：三层结构
 
+下面三次 `pattern()` 依次是 z=0（前外壳）、z=1（控制器在正中）、z=2（后外壳）。**链式调用中间不放注释**——`// z=0` 这类行尾注释会把链断成两句，触发预检误报（见 [排错](Troubleshooting)）。
+
 ```js
 MMCREvents.startup(event => {
   const api = event.getAPI()
 
   event.createStructure('my_mod:smelter')
-    .pattern('BBB', 'BHB', 'BBB')    // z=0
-    .pattern('BHB', 'HCH', 'BHB')    // z=1  控制器在正中
-    .pattern('BBB', 'BHB', 'BBB')    // z=2
+    .pattern('BBB', 'BHB', 'BBB')
+    .pattern('BHB', 'HCH', 'BHB')
+    .pattern('BBB', 'BHB', 'BBB')
     .set('B', api.block('minecraft:iron_block'))
     .set('H', api.anyOf(
       api.block('minecraft:iron_block'),

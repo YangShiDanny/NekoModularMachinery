@@ -171,7 +171,7 @@ MMCREvents.startup(event => {
   event.createMachine('my_mod:smelter').recipePool('my_mod:smelter').register()
 
   event.createStructure('my_mod:smelter')
-    .pattern('BBB', 'BCB', 'BBB')      // 注意：控制器改成独立的 C
+    .pattern('BBB', 'BCB', 'BBB')
     .set('B', api.block('minecraft:iron_block'))
     .controller('C')
     .build()
@@ -179,6 +179,8 @@ MMCREvents.startup(event => {
 ```
 
 顺便修掉了原脚本的两个问题：控制器符号和外壳符号混用、以及 `set('#', air)` 但结构里没有实际留空。
+
+另外两条硬规矩：控制器符号（这里是 `C`）必须独立，不要和外壳材料混用；**链式调用中间不能插 `//` 注释**（NekoJS 静态预检的解析器只跳空白不跳注释，会把链断成两句），原因见 [排错](Troubleshooting) 的 binding-preflight 一条。
 
 ## 下一步
 

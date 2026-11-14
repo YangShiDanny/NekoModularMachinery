@@ -54,6 +54,51 @@ NekoJS 本身没加载成功。先单独排查 NekoJS，本附属无从谈起。
 
 第四步最直接——脚本抛异常会被 NekoJS 捕获，不崩游戏，但整个脚本会被标记为 disabled。
 
+### 日志红字：`binding-preflight unknown-identifier pattern`
+
+```
+Script binding-preflight unknown-identifier pattern callback exception:
+环境: STARTUP
+位置: startup_scripts/src/xxx.js:25:6
+原因: Unknown identifier 'pattern'.
+```
+
+**不崩游戏，脚本照常运行，结构照样注册**，但它会在日志里刷一片红，很容易被当成脚本坏了。
+
+原因不在本附属：NekoJS 在脚本执行前会跑一遍静态预检（`GlobalBindingMemberValidator`），用的是它自己那个轻量解析器
+`ValParser`。该解析器在**链式调用的每一级之间只跳过空白、不跳过注释**（`ValParser.parseSuffix` 里用的是
+`skipWs()` 而不是 `skipWsCmt()`），所以只要链中间夹了注释，它就把一条链断成两句：
+
+```js
+event.createStructure('my_mod:smelter')
+  // ← 这一行注释就足以断链
+  .pattern('BBB', 'BCB', 'BBB')
+```
+
+断链之后 `.pattern(...)` 被当成独立语句，`pattern` 变成"调用了一个叫 pattern 的全局函数"，于是报
+`Unknown identifier 'pattern'`。行尾注释同样致命：
+
+```js
+.set('B', api.block('minecraft:iron_block'))   // ← 这一行注释也会断链
+.controller('C')
+```
+
+**规避办法：链式调用中间不写注释。** 解释写在整条链的上方，或写进 `pattern(...)` 的实参内部（不是最后一个实参的行尾）：
+
+```js
+// 三片：z=0 / z=1（控制器居中）/ z=2
+event.createStructure('my_mod:smelter')
+  .pattern('BBB', 'BCB', 'BBB')
+  .pattern('BHB', 'HCH', 'BHB')
+  .pattern('BBB', 'BCB', 'BBB')
+  .set('B', api.block('minecraft:iron_block'))
+  .controller('C')
+  .build()
+```
+
+真要根治得等上游：把 `nekojs` 的 `common/src/main/java/com/tkisor/nekojs/core/compiler/ValParser.java`
+里 `parseSuffix()` 开头的 `skipWs()` 改成 `skipWsCmt()` 即可（一行）。
+
 ### 崩溃：`Unknown machine definition: xxx:yyy` / `RegistrationException`
 
 ```

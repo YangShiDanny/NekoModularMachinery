@@ -94,7 +94,14 @@ event.createStructure('my_mod:big')
 
 ```js
 const layer = ['BBBBB', 'B###B', 'BBBBB']
-.pattern(layer).pattern(layer).pattern(layer)
+
+event.createStructure('my_mod:big')
+  .pattern(layer)
+  .pattern(layer)
+  .pattern(layer)
+  .set('B', api.block('minecraft:iron_block'))
+  .controller('C')
+  .build()
 ```
 
 ## 6. 没有导出工具怎么办

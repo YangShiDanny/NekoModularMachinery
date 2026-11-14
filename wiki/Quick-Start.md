@@ -86,8 +86,9 @@ MMCREvents.startup(event => {
 想往上堆第二层，再调一次 `pattern(...)`——它会成为 z=1 的那一片：
 
 ```js
-.pattern('BHB', 'HCH', 'BHB')   // z = 0
-.pattern('BBB', 'B#B', 'BBB')   // z = 1
+// 第一句 = z=0，第二句 = z=1
+.pattern('BHB', 'HCH', 'BHB')
+.pattern('BBB', 'B#B', 'BBB')
 ```
 
 三个坑：

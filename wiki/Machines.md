@@ -25,8 +25,10 @@ MMCREvents.startup(event => {
 声明这台机器读哪些配方池。
 
 ```js
-.recipePool('my_mod:smelter')                    // 一个池
-.recipePool('my_mod:tier1', 'my_mod:tier2')      // 多个池
+// 一个池
+.recipePool('my_mod:smelter')
+// 多个池
+.recipePool('my_mod:tier1', 'my_mod:tier2')
 ```
 
 - **会覆盖**默认池，不是追加。
